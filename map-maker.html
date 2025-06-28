@@ -1,0 +1,1775 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTRPG Hex Map Maker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* General Styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            background-color: #1f2937; /* bg-gray-800 */
+            color: #d1d5db; /* text-gray-300 */
+        }
+        
+        #main-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Top Left Controls */
+        #topLeftControls {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            z-index: 20;
+            background-color: rgba(17, 24, 39, 0.8); /* bg-gray-900 with opacity */
+            backdrop-filter: blur(4px);
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            border: 1px solid #374151;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        #topLeftControls input {
+            background-color: transparent;
+            border: none;
+            border-bottom: 2px solid #4b5563; /* border-gray-600 */
+            padding: 0.25rem 0.1rem;
+            color: #f9fafb; /* text-gray-50 */
+            transition: border-color 0.2s;
+        }
+         #topLeftControls input:focus {
+            outline: none;
+            border-bottom-color: #3b82f6; /* border-blue-500 */
+        }
+        #topLeftControls #mapScaleInput {
+             color: #9ca3af; /* text-gray-400 */
+        }
+         #topLeftControls label {
+             font-size: 0.75rem;
+             color: #9ca3af; /* text-gray-400 */
+             margin-bottom: 0.1rem;
+             display: block;
+         }
+
+
+        /* Canvas Styles */
+        #canvas-container {
+            position: absolute;
+            inset: 0;
+        }
+        #mapCanvas, #drawingCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #drawingCanvas {
+             z-index: 1; 
+             pointer-events: none; /* Pass clicks through by default */
+        }
+        #mapCanvas {
+            cursor: crosshair;
+            background-color: #374151; /* bg-gray-700 */
+        }
+        #mapCanvas.panning {
+            cursor: grab;
+        }
+        #mapCanvas.pencil {
+            cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 20h9'/><path d='M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z'/></svg>") 0 24, auto;
+        }
+
+        /* Control Panel Styles */
+        #panelWrapper {
+            position: absolute;
+            top: 0;
+            right: 0;
+            height: 100%;
+            display: flex;
+            align-items: flex-start;
+            z-index: 10;
+            pointer-events: none; /* Allows clicks to pass through the wrapper */
+        }
+
+        .control-container {
+            background-color: #111827; /* bg-gray-900 */
+            color: #d1d5db; /* text-gray-300 */
+            width: 20rem; /* 320px */
+            height: 100%;
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+            flex-shrink: 0;
+            pointer-events: auto; /* Re-enable pointer events for the panel itself */
+        }
+        .control-container.open {
+            transform: translateX(0%);
+        }
+
+        .control-panel {
+            background-color: #1f2937; /* bg-gray-800 */
+            border: 1px solid #374151; /* border-gray-700 */
+            padding: 1rem;
+            border-radius: 0.5rem;
+        }
+        .control-panel h3 {
+            font-weight: 700;
+            margin-bottom: 0;
+            color: #f9fafb; /* text-gray-50 */
+        }
+        .collapsible-header {
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #374151;
+            padding-bottom: 0.5rem;
+        }
+        .collapsible-header svg {
+            transition: transform 0.3s;
+        }
+        .collapsible-header.collapsed svg {
+             transform: rotate(-90deg);
+        }
+        .collapsible-content {
+             padding-top: 0.75rem;
+        }
+        .collapsible-content.hidden {
+            display: none;
+        }
+
+        .control-panel label {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+            display: block;
+        }
+        .control-panel input[type="range"] {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 8px; background: #4b5563; border-radius: 5px;
+            outline: none; opacity: 0.7; transition: opacity .2s;
+        }
+        .control-panel input[type="range"]:hover { opacity: 1; }
+        .control-panel input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 20px; height: 20px;
+            background: #3b82f6; cursor: pointer; border-radius: 50%;
+        }
+        .control-panel input[type="range"]::-moz-range-thumb {
+            width: 20px; height: 20px; background: #3b82f6; cursor: pointer; border-radius: 50%;
+        }
+
+        .control-panel select, .control-panel button, .control-panel input[type="number"],
+        .control-panel input[type="text"], .control-panel textarea, .control-panel input[type="color"] {
+            width: 100%; padding: 0.5rem; border-radius: 0.375rem; border: 1px solid #4b5563;
+            background-color: #374151; color: #f9fafb; margin-bottom: 0.75rem; transition: all 0.2s;
+        }
+        .control-panel textarea { min-height: 80px; }
+        .control-panel input[type="color"] { padding: 0.25rem; }
+        .control-panel button {
+            display: flex; align-items: center; justify-content: center;
+        }
+        .control-panel button:hover { background-color: #4b5563; }
+        .control-panel.active {
+            background-color: #1e40af; border-color: #3b82f6;
+        }
+        .control-panel button.active { background-color: #3b82f6; }
+        .control-panel button:disabled {
+            background-color: #4b5563;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        /* File Menu Styles */
+        .file-dropdown {
+            position: absolute; background-color: #1f2937; border: 1px solid #374151;
+            border-radius: 0.375rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            z-index: 50; width: 200px;
+        }
+        .file-dropdown-item {
+            padding: 0.75rem 1rem; cursor: pointer; display: block; width: 100%; text-align: left;
+        }
+         .file-dropdown-item:hover { background-color: #374151; }
+
+        /* Swatch & Layer Styles */
+        .item-container, .layer-item {
+            display: flex; flex-direction: row; align-items: center; padding: 0.5rem;
+            border-radius: 0.375rem; border: 2px solid transparent; cursor: pointer; transition: all 0.2s;
+        }
+        .item-container.active, .layer-item.active {
+             border-color: #3b82f6; background-color: #374151;
+        }
+        .item-container:hover, .layer-item:hover { background-color: #374151; }
+        .texture-swatch, .object-swatch {
+            width: 32px; height: 32px; border-radius: 0.375rem;
+            border: 1px solid #4b5563; flex-shrink: 0;
+        }
+        .object-swatch {
+             display: flex; align-items: center; justify-content: center; font-size: 24px;
+        }
+        .item-label, .layer-label {
+            margin-left: 0.75rem; font-size: 14px; text-align: left; flex-grow: 1;
+        }
+        .layer-controls { display: flex; gap: 0.25rem; }
+        .layer-controls button {
+            padding: 0.25rem; background: none; border: none; color: #9ca3af;
+        }
+         .layer-controls button:hover { color: #f9fafb; background: #4b5563; }
+        
+        /* Collapsed Panel Bar */
+        .collapsed-bar {
+            position: absolute;
+            top: 1rem;
+            right: 0;
+            z-index: 5;
+            writing-mode: vertical-rl; 
+            transform: rotate(180deg); 
+            background-color: #111827; 
+            color: #d1d5db;
+            padding: 1rem 0.5rem; 
+            cursor: pointer; 
+            border-radius: 0.5rem 0 0 0.5rem; 
+            display: flex;
+            align-items: center; 
+            justify-content: center; 
+            letter-spacing: 2px; 
+            font-weight: bold;
+            flex-shrink: 0; 
+            transition: all 0.3s ease-in-out;
+            height: 200px;
+            pointer-events: auto;
+        }
+        .collapsed-bar.hidden {
+            display: none;
+        }
+
+        #graphicsDropdown {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #111827;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        .spinner {
+            border-radius: 50%;
+            width: 1.25rem;
+            height: 1.25rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+<body>
+    <div id="main-container">
+
+        <div id="topLeftControls">
+            <div>
+                <label for="mapNameInput">Map Name</label>
+                <input type="text" id="mapNameInput" placeholder="Untitled Map" class="text-lg w-48">
+            </div>
+            <div>
+                 <label for="mapScaleInput">Scale (m)</label>
+                 <input type="number" id="mapScaleInput" value="10" min="1" class="text-lg w-20">
+            </div>
+        </div>
+        
+        <div id="canvas-container">
+            <canvas id="mapCanvas"></canvas>
+            <canvas id="drawingCanvas"></canvas>
+        </div>
+        
+        <div id="panelWrapper">
+            <!-- Control Panel -->
+            <div id="controlContainer" class="control-container p-6 flex flex-col shadow-lg">
+                <div class="flex justify-between items-center mb-6 flex-shrink-0 relative">
+                    <h2 class="text-2xl font-bold text-gray-100">Map Controls</h2>
+                    <div class="flex items-center">
+                        <button id="fileMenuBtn" class="p-2 rounded-md hover:bg-gray-700">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
+                        </button>
+                        <button id="collapseBtn" class="p-2 rounded-md hover:bg-gray-700 ml-2" title="Hide Panel">
+                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                        </button>
+                    </div>
+                    <div id="fileDropdownMenu" class="file-dropdown hidden mt-2 right-10 top-full">
+                        <button id="savePngBtn" class="file-dropdown-item">Save as PNG</button>
+                        <button id="saveJsonBtn" class="file-dropdown-item">Save Map (.json)</button>
+                        <button id="loadJsonBtn" class="file-dropdown-item">Load Map (.json)</button>
+                    </div>
+                    <input type="file" id="loadJsonInput" class="hidden" accept=".json">
+                </div>
+                
+                <div class="flex-grow overflow-y-auto pr-2">
+                    <!-- Drawing Tools -->
+                    <div class="control-panel mb-6">
+                        <h3 class="!border-b-0">Drawing Tools</h3>
+                        <div class="grid grid-cols-5 gap-2 my-2">
+                            <button id="toolPaintBtn" title="Paint Brush" class="active">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                            </button>
+                             <button id="toolPencilBtn" title="Pencil">
+                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                             </button>
+                             <button id="toolLineBtn" title="Line">
+                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                             </button>
+                             <button id="toolRectBtn" title="Rectangle">
+                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                             </button>
+                             <button id="toolEllipseBtn" title="Ellipse">
+                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
+                             </button>
+                        </div>
+                         <label for="brushSize">Brush/Object Size: <span id="brushSizeValue">1</span></label>
+                         <input type="range" id="brushSize" min="1" max="10" value="1" class="mb-3">
+                    </div>
+
+                    <!-- Pencil Options -->
+                    <div id="pencilToolPanel" class="control-panel mb-6 hidden">
+                         <h3 class="!border-b-0 !pb-2">Pencil Options</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="pencilColorPicker">Color</label>
+                                <input type="color" id="pencilColorPicker" value="#FFFFFF" class="!mb-0">
+                            </div>
+                             <div>
+                                <label for="pencilWidth">Width: <span id="pencilWidthValue">5</span></label>
+                                <input type="range" id="pencilWidth" min="1" max="20" value="5" class="!mb-0">
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <!-- Map Actions -->
+                    <div class="control-panel mb-6">
+                        <h3 class="!border-b-0">Actions</h3>
+                        <div class="grid grid-cols-2 gap-2 my-2">
+                             <button id="zoomInBtn" title="Zoom In" class="text-2xl">+</button>
+                            <button id="zoomOutBtn" title="Zoom Out" class="text-2xl">-</button>
+                            <button id="eraserBtn" title="Eraser">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="18" y1="9" x2='12' y2='15'></line><line x1='12' y1='9' x2='18' y2='15'></line></svg>
+                            </button>
+                            <button id="resetViewBtn" title="Reset View & Zoom">Center</button>
+                        </div>
+                    </div>
+                                        
+                    <!-- AI Tools Panel -->
+                    <div class="control-panel mb-6">
+                        <div id="aiToolsHeader" class="collapsible-header collapsed">
+                            <h3>✨ AI Tools</h3>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </div>
+                        <div id="aiToolsContent" class="collapsible-content hidden">
+                            <div class="mb-4">
+                                <h4 class="font-semibold text-gray-200 mb-2">AI World Forge</h4>
+                                <label for="aiForgePrompt">Describe the world to create:</label>
+                                <textarea id="aiForgePrompt" placeholder="e.g., A large continent with a central desert, surrounded by a ring of mountains." class="!h-28"></textarea>
+                                <button id="aiForgeBtn" data-original-text="Forge World with AI">Forge World with AI</button>
+                            </div>
+                            <div class="border-t border-gray-700 pt-4 mt-4">
+                                <h4 class="font-semibold text-gray-200 mb-2">Alter Map</h4>
+                                <label for="aiAlterPrompt">Describe the changes to make:</label>
+                                <textarea id="aiAlterPrompt" placeholder="e.g., Add a road from west to east."></textarea>
+                                <button id="aiAlterMapBtn" data-original-text="Alter Map">Alter Map</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Terrain Textures -->
+                    <div class="control-panel mb-6">
+                         <div id="terrainHeader" class="collapsible-header collapsed">
+                            <h3>Terrain Type</h3>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </div>
+                        <div id="terrainContent" class="collapsible-content hidden">
+                            <div id="terrainSelector" class="flex flex-col gap-2"></div>
+                        </div>
+                    </div>
+
+                    <!-- Object Placement -->
+                    <div class="control-panel mb-6">
+                        <div id="objectHeader" class="collapsible-header collapsed">
+                            <h3>Objects</h3>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </div>
+                         <div id="objectContent" class="collapsible-content hidden">
+                            <div id="objectSelector" class="flex flex-col gap-2"></div>
+                         </div>
+                    </div>
+
+                    <!-- Text Tool -->
+                    <div id="textToolPanel" class="control-panel mb-6">
+                        <div id="textHeader" class="collapsible-header collapsed">
+                            <h3>Text</h3>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </div>
+                         <div id="textContent" class="collapsible-content hidden">
+                            <label for="textInput">Text</label>
+                            <input type="text" id="textInput" value="Label">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                     <label for="fontSizeInput">Size</label>
+                                     <input type="number" id="fontSizeInput" value="20" min="1">
+                                </div>
+                                <div>
+                                     <label for="fontColorInput">Color</label>
+                                     <input type="color" id="fontColorInput" value="#FFFFFF">
+                                </div>
+                            </div>
+                         </div>
+                    </div>
+                </div>
+
+                <!-- Graphics Dropdown -->
+                <div id="graphicsDropdown" class="mt-auto relative">
+                     <button id="graphicsBtn" class="w-full !mb-0 flex justify-between items-center bg-gray-800 p-3 rounded-md">
+                         <span>Graphics Options</span>
+                         <svg id="graphicsChevron" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                     </button>
+                     <div id="graphicsContent" class="absolute bottom-full left-0 right-0 p-4 bg-gray-800 border border-gray-700 rounded-md mb-2 hidden">
+                         <div class="control-panel mb-4">
+                             <h3 class="!border-b-0 !pb-2 text-base font-semibold">Layers</h3>
+                             <div id="layerContent" class="collapsible-content">
+                                 <div id="layerList" class="flex flex-col gap-2 mb-4"></div>
+                                 <div class="grid grid-cols-2 gap-2">
+                                     <button id="addLayerBtn">Add Layer</button>
+                                     <button id="deleteLayerBtn">Delete Layer</button>
+                                 </div>
+                             </div>
+                         </div>
+
+                          <div class="control-panel mb-4">
+                             <h3 class="!border-b-0 !pb-2 text-base font-semibold">Grid Options</h3>
+                             <div class="grid grid-cols-2 gap-4 items-center">
+                                 <div>
+                                     <label for="gridColorPicker" class="text-sm">Color</label>
+                                     <input type="color" id="gridColorPicker" value="#111827" class="!p-1 !h-9 !mb-0">
+                                 </div>
+                                 <div class="flex items-center justify-end pt-5">
+                                     <input type="checkbox" id="gridVisibleCheckbox" class="h-4 w-4 rounded !mb-0" checked>
+                                     <label for="gridVisibleCheckbox" class="ml-2 !mb-0">Visible</label>
+                                 </div>
+                             </div>
+                         </div>
+
+                          <div class="control-panel">
+                              <h3 class="!border-b-0 !pb-2 text-base font-semibold">Map Generation</h3>
+                             <div id="mapGenerationContent" class="collapsible-content">
+                                 <div class="mb-4">
+                                     <h4 class="font-semibold text-gray-200 mb-2">Map Shape</h4>
+                                     <label for="mapShape">Shape</label>
+                                     <select id="mapShape" class="!mb-2">
+                                         <option value="rectangle">Rectangle</option>
+                                         <option value="parallelogram">Parallelogram</option>
+                                         <option value="circle">Circle</option>
+                                     </select>
+                                     <div id="dimensionInputs">
+                                         <div class="grid grid-cols-2 gap-2">
+                                             <div>
+                                                 <label for="mapWidth">Width</label>
+                                                 <input type="number" id="mapWidth" value="50" min="1">
+                                             </div>
+                                             <div>
+                                                 <label for="mapHeight">Height</label>
+                                                 <input type="number" id="mapHeight" value="50" min="1">
+                                             </div>
+                                         </div>
+                                         <div class="hidden">
+                                             <label for="mapRadius">Radius</label>
+                                             <input type="number" id="mapRadius" value="15" min="1">
+                                         </div>
+                                     </div>
+                                     <button id="generateBaseMapBtn" class="mt-2">Generate Blank Map</button>
+                                 </div>
+                             </div>
+                         </div>
+
+                     </div>
+                </div>
+
+            </div>
+        </div>
+        <div id="collapsedBar" class="collapsed-bar hidden">MAP OPTIONS</div>
+    </div>
+
+    <script type="module">
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('mapCanvas');
+            const ctx = canvas.getContext('2d');
+            const drawingCanvas = document.getElementById('drawingCanvas');
+            const drawingCtx = drawingCanvas.getContext('2d');
+
+            // --- Configuration ---
+            const baseHexSize = 30; 
+            
+            // --- State ---
+            let mapGrid = {}; 
+            let mapName = 'Untitled Map';
+            let mapScale = 10;
+            let layers = [];
+            let activeLayerIndex = 0;
+            let currentTool = 'paint';
+            let brushSize = 1;
+            let selectedTerrain = 'grass';
+            let selectedObjectKey = 'Fantasy.Outside.tree';
+            let view = { zoom: 1, offsetX: 0, offsetY: 0 };
+            let gridColor = '#111827';
+            let isGridVisible = true;
+            let isBlendingEnabled = true;
+            let isPanning = false;
+            let panStart = { x: 0, y: 0 };
+            let isDrawingShape = false;
+            let isPainting = false;
+            let shapeStartHex = null;
+            let previewCanvas = document.createElement('canvas');
+            let previewCtx = previewCanvas.getContext('2d');
+            let pencilColor = '#FFFFFF';
+            let pencilWidth = 5;
+            let isPenciling = false;
+            let currentPencilPath = null;
+            let pencilPaths = [];
+
+
+            // --- UI Elements ---
+            const mapNameInput = document.getElementById('mapNameInput');
+            const mapScaleInput = document.getElementById('mapScaleInput');
+            const brushSizeSlider = document.getElementById('brushSize');
+            const brushSizeValue = document.getElementById('brushSizeValue');
+            const terrainSelector = document.getElementById('terrainSelector');
+            const objectSelector = document.getElementById('objectSelector');
+            const zoomInBtn = document.getElementById('zoomInBtn');
+            const zoomOutBtn = document.getElementById('zoomOutBtn');
+            const resetViewBtn = document.getElementById('resetViewBtn');
+            const eraserBtn = document.getElementById('eraserBtn');
+            const gridColorPicker = document.getElementById('gridColorPicker');
+            const gridVisibleCheckbox = document.getElementById('gridVisibleCheckbox');
+            const mapShapeSelect = document.getElementById('mapShape');
+            const mapWidthInput = document.getElementById('mapWidth');
+            const mapHeightInput = document.getElementById('mapHeight');
+            const mapRadiusInput = document.getElementById('mapRadius');
+            const generateBaseMapBtn = document.getElementById('generateBaseMapBtn');
+            const layerList = document.getElementById('layerList');
+            const addLayerBtn = document.getElementById('addLayerBtn');
+            const deleteLayerBtn = document.getElementById('deleteLayerBtn');
+            const textToolPanel = document.getElementById('textToolPanel');
+            const textHeader = document.getElementById('textHeader');
+            const textInput = document.getElementById('textInput');
+            const fontSizeInput = document.getElementById('fontSizeInput');
+            const fontColorInput = document.getElementById('fontColorInput');
+            const fileMenuBtn = document.getElementById('fileMenuBtn');
+            const fileDropdownMenu = document.getElementById('fileDropdownMenu');
+            const savePngBtn = document.getElementById('savePngBtn');
+            const saveJsonBtn = document.getElementById('saveJsonBtn');
+            const loadJsonBtn = document.getElementById('loadJsonBtn');
+            const loadJsonInput = document.getElementById('loadJsonInput');
+            const toolPaintBtn = document.getElementById('toolPaintBtn');
+            const toolPencilBtn = document.getElementById('toolPencilBtn');
+            const pencilToolPanel = document.getElementById('pencilToolPanel');
+            const pencilColorPicker = document.getElementById('pencilColorPicker');
+            const pencilWidthSlider = document.getElementById('pencilWidth');
+            const pencilWidthValue = document.getElementById('pencilWidthValue');
+            const toolLineBtn = document.getElementById('toolLineBtn');
+            const toolRectBtn = document.getElementById('toolRectBtn');
+            const toolEllipseBtn = document.getElementById('toolEllipseBtn');
+            const aiForgeBtn = document.getElementById('aiForgeBtn');
+            const aiAlterMapBtn = document.getElementById('aiAlterMapBtn');
+            const graphicsBtn = document.getElementById('graphicsBtn');
+            const graphicsContent = document.getElementById('graphicsContent');
+            const graphicsChevron = document.getElementById('graphicsChevron');
+            const controlContainer = document.getElementById('controlContainer');
+            const collapseBtn = document.getElementById('collapseBtn');
+            const collapsedBar = document.getElementById('collapsedBar');
+            
+            // Accordion elements
+            const accordionHeaders = document.querySelectorAll('.collapsible-header');
+
+            // --- Data Definitions ---
+            const terrains = {
+                water: { color: '#4c92c8', name: 'Water' },
+                sand: { color: '#f0d9a0', name: 'Sand' },
+                grass: { color: '#86c440', name: 'Grass' },
+                plains: { color: '#a6d15a', name: 'Plains'},
+                forest: { color: '#4a8232', name: 'Forest' },
+                hills: { color: '#a08b6b', name: 'Hills'},
+                mountain: {color: '#6f6f6f', name: 'Mountain'},
+                snow: { color: '#ffffff', name: 'Snow'},
+                dirt: { color: '#a07040', name: 'Dirt' },
+                road: { color: '#b0a89f', name: 'Road'},
+                lava: { color: '#e25822', name: 'Lava'},
+                crags: {color: '#5a5a5a', name: 'Crags'},
+                swamp: { color: '#4d6642', name: 'Swamp'},
+                tundra: { color: '#cdd3d6', name: 'Tundra' },
+            };
+
+            const objectCategories = {
+                "Fantasy": {
+                    "Outside": { tree: { symbol: '🌳', name: 'Tree' }, rock: { symbol: '🪨', name: 'Rock' }, stump: { symbol: '🪵', name: 'Stump' }, flower: { symbol: '🌸', name: 'Flower' }, mushroom: { symbol: '🍄', name: 'Mushroom' } },
+                    "City": { house: { symbol: '🏠', name: 'House' }, shop: { symbol: '🏪', name: 'Shop' }, fountain: { symbol: '⛲', name: 'Fountain' }, statue: { symbol: '🗿', name: 'Statue' }, wall: { symbol: '🧱', name: 'Wall' } },
+                    "Castle/Fort": { tower: { symbol: '🏰', name: 'Tower'}, wall_stone: { symbol: '🧱', name: 'Stone Wall' }, keep: { symbol: '🏛️', name: 'Keep' }, barracks: { symbol: '🏢', name: 'Barracks' } },
+                    "Dungeon": { cave: {symbol: '🕳️', name: 'Cave'}, monster: {symbol: '👹', name: 'Monster'}, treasure: { symbol: '👑', name: 'Treasure' }, trap: { symbol: '🕸️', name: 'Trap' }, stairs: { symbol: '🪜', name: 'Stairs' }, door: { symbol: '🚪', name: 'Door' } },
+                    "Farm & Bar": { farmhouse: { symbol: '🏡', name: 'Farmhouse'}, barn: { symbol: '🛖', name: 'Barn'}, well: { symbol: '🕳️', name: 'Well' }, crops: { symbol: '🌾', name: 'Crops' }, inn: { symbol: '🍻', name: 'Inn/Bar'} }
+                },
+                "Sci-Fi": {
+                    "Outside": { alien_tree: { symbol: '🌴', name: 'Alien Flora' }, crystal: { symbol: '💎', name: 'Crystal' }, crater: { symbol: '☄️', name: 'Crater' }, rover: { symbol: '🛰️', name: 'Rover' } },
+                    "Base/City": { habitat: { symbol: '🛖', name: 'Habitat Dome' }, lab: { symbol: '🔬', name: 'Lab' }, power_plant: { symbol: '⚡', name: 'Power Plant' }, comm_tower: { symbol: '🗼', name: 'Comm Tower'}, landing_pad: { symbol: '🚀', name: 'Landing Pad'} },
+                    "Interior": { console: { symbol: '💻', name: 'Console' }, stasis_pod: { symbol: '⚰️', name: 'Stasis Pod'}, robot: { symbol: '🤖', name: 'Robot' }, alien: { symbol: '👽', name: 'Alien' }, airlock: { symbol: '🚪', name: 'Airlock'} }
+                }
+            };
+
+            // --- Initialization ---
+            function initialize() {
+                resizeCanvas();
+                togglePanel(true);
+                generateBaseMap();
+                populateSelectors();
+                addEventListeners();
+                gridColorPicker.value = gridColor;
+                gridVisibleCheckbox.checked = isGridVisible;
+            }
+            
+            function togglePanel(isCollapsed) {
+                controlContainer.classList.toggle('open', !isCollapsed);
+                collapsedBar.classList.toggle('hidden', !isCollapsed);
+            }
+
+            function resizeCanvas() {
+                const { width, height } = canvas.parentElement.getBoundingClientRect();
+                canvas.width = width;
+                canvas.height = height;
+                drawingCanvas.width = width;
+                drawingCanvas.height = height;
+                previewCanvas.width = width;
+                previewCanvas.height = height;
+                drawAll();
+            }
+            
+            function generateBaseMap() {
+                const shape = mapShapeSelect.value;
+                const width = mapWidthInput.value;
+                const height = mapHeightInput.value;
+                const radius = mapRadiusInput.value;
+                mapGrid = generateBaseMapGrid(shape, width, height, radius);
+                layers = [{ name: 'Ground', visible: true, data: {} }, { name: 'Objects', visible: true, data: {} }];
+                pencilPaths = [];
+                activeLayerIndex = 0;
+                renderLayers();
+                drawAll();
+                centerView();
+            }
+
+            function generateBaseMapGrid(shape, width, height, radius) {
+                const newGrid = {};
+                const w = parseInt(width);
+                const h = parseInt(height);
+                const r_rad = parseInt(radius);
+
+                switch(shape) {
+                    case 'rectangle':
+                        for (let row = 0; row < h; row++) {
+                            const r_offset = Math.floor(row / 2);
+                            for (let col = -r_offset; col < w - r_offset; col++) {
+                                newGrid[`${col},${row}`] = true;
+                            }
+                        }
+                        break;
+                    case 'parallelogram':
+                        for (let q = 0; q < w; q++) {
+                            for (let r = 0; r < h; r++) {
+                                newGrid[`${q},${r}`] = true;
+                            }
+                        }
+                        break;
+                    case 'circle':
+                        for (let q = -r_rad; q <= r_rad; q++) {
+                            for (let r = -r_rad; r <= r_rad; r++) {
+                                if (axialDistance({q:0, r:0}, {q, r}) <= r_rad) {
+                                    newGrid[`${q},${r}`] = true;
+                                }
+                            }
+                        }
+                        break;
+                }
+                return newGrid;
+            }
+
+            function centerView() {
+                if (Object.keys(mapGrid).length === 0) return;
+
+                const {mapPixelWidth, mapPixelHeight, mapCenterX, mapCenterY} = getMapPixelBounds();
+
+                if(mapPixelWidth === 0 || mapPixelHeight === 0) return;
+
+                view.zoom = Math.min(canvas.width / mapPixelWidth, canvas.height / mapPixelHeight) * 0.9;
+                view.zoom = Math.max(0.1, Math.min(5, view.zoom));
+
+                view.offsetX = (canvas.width / 2) - (mapCenterX * view.zoom);
+                view.offsetY = (canvas.height / 2) - (mapCenterY * view.zoom);
+                drawAll();
+            }
+
+            // --- Drawing Functions ---
+            function drawAll() {
+                requestAnimationFrame(() => {
+                    ctx.clearRect(0,0, canvas.width, canvas.height);
+                    drawingCtx.clearRect(0,0, drawingCanvas.width, drawingCanvas.height);
+                    drawFrame(ctx);
+                    drawPencilPaths();
+                });
+            }
+
+            function drawFrame(targetCtx, bounds = null) {
+                targetCtx.save();
+
+                if (bounds) { 
+                    targetCtx.clearRect(0, 0, bounds.width, bounds.height);
+                    targetCtx.translate(-bounds.minPxX, -bounds.minPxY);
+                } else { 
+                    targetCtx.translate(view.offsetX, view.offsetY);
+                    targetCtx.scale(view.zoom, view.zoom);
+                }
+
+                const topTerrains = getTopTerrains();
+                for (const key in mapGrid) {
+                    const [q, r] = key.split(',').map(Number);
+                    const terrain = topTerrains[key] || 'water'; 
+                    if (isBlendingEnabled) {
+                        drawBlendedHex(targetCtx, q, r, terrain, topTerrains);
+                    } else {
+                        const {x, y} = hexToPixel(q, r);
+                        drawHex(targetCtx, x, y, terrains[terrain].color);
+                    }
+                }
+                
+                if (isGridVisible) {
+                    for (const key in mapGrid) {
+                        const [q, r] = key.split(',').map(Number);
+                        const { x, y } = hexToPixel(q, r);
+                        drawHexOutline(targetCtx, x, y, gridColor);
+                    }
+                }
+
+                layers.forEach(layer => {
+                    if (!layer.visible) return;
+                    for (const key in layer.data) {
+                        const [q, r] = key.split(',').map(Number);
+                        const { x, y } = hexToPixel(q, r);
+                        const hexData = layer.data[key];
+
+                        if (hexData.objectKey) {
+                            const [mainCat, subCat, objKey] = hexData.objectKey.split('.');
+                            const object = objectCategories[mainCat][subCat][objKey];
+                            drawObject(targetCtx, x, y, object.symbol, hexData.size);
+                        }
+                        if (hexData.text) {
+                            drawText(targetCtx, x, y, hexData.text, hexData.textSize, hexData.textColor);
+                        }
+                    }
+                });
+                
+                targetCtx.restore();
+
+                if(isDrawingShape && targetCtx === ctx) {
+                    ctx.drawImage(previewCanvas, 0, 0);
+                }
+            }
+            
+            function drawHex(targetCtx, x, y, fillStyle) {
+                targetCtx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    const corner = getHexCorner({x, y}, baseHexSize, i);
+                    targetCtx.lineTo(corner.x, corner.y);
+                }
+                targetCtx.closePath();
+                targetCtx.fillStyle = fillStyle;
+                targetCtx.fill();
+            }
+
+            function drawBlendedHex(targetCtx, q, r, terrain, topTerrains) {
+                const centerColor = terrains[terrain].color;
+                const pCenter = hexToPixel(q, r);
+
+                for (let i = 0; i < 6; i++) {
+                    const corner1 = getHexCorner(pCenter, baseHexSize, i);
+                    const corner2 = getHexCorner(pCenter, baseHexSize, i + 1);
+                    
+                    const neighborCoords = getNeighborCoords(q, r, i);
+                    const neighborTerrain = topTerrains[`${neighborCoords.q},${neighborCoords.r}`];
+                    const neighborColor = neighborTerrain ? terrains[neighborTerrain].color : centerColor;
+                    
+                    const midPoint = { x: (corner1.x + corner2.x) / 2, y: (corner1.y + corner2.y) / 2 };
+                    
+                    const gradient = targetCtx.createLinearGradient(pCenter.x, pCenter.y, midPoint.x, midPoint.y);
+                    gradient.addColorStop(0, centerColor);
+                    gradient.addColorStop(1, neighborColor);
+
+                    targetCtx.fillStyle = gradient;
+                    targetCtx.beginPath();
+                    targetCtx.moveTo(pCenter.x, pCenter.y);
+                    targetCtx.lineTo(corner1.x, corner1.y);
+                    targetCtx.lineTo(corner2.x, corner2.y);
+                    targetCtx.closePath();
+                    targetCtx.fill();
+                }
+            }
+
+            function drawHexOutline(targetCtx, x, y, strokeStyle) {
+                targetCtx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                     const corner = getHexCorner({x, y}, baseHexSize, i);
+                    targetCtx.lineTo(corner.x, corner.y);
+                }
+                targetCtx.closePath();
+                targetCtx.strokeStyle = strokeStyle;
+                targetCtx.lineWidth = 1.5 / (targetCtx === ctx ? view.zoom : 1); 
+                targetCtx.stroke();
+            }
+
+             function drawObject(targetCtx, x, y, symbol, size = 1) {
+                targetCtx.font = `${baseHexSize * 1.2 * size}px Arial`;
+                targetCtx.textAlign = 'center';
+                targetCtx.textBaseline = 'middle';
+                targetCtx.fillText(symbol, x, y);
+            }
+
+            function drawText(targetCtx, x, y, text, size, color) {
+                targetCtx.font = `${size}px Inter`;
+                targetCtx.fillStyle = color;
+                targetCtx.textAlign = 'center';
+                targetCtx.textBaseline = 'middle';
+                targetCtx.fillText(text, x, y);
+            }
+            
+            function drawPencilPaths() {
+                drawingCtx.save();
+                drawingCtx.translate(view.offsetX, view.offsetY);
+                drawingCtx.scale(view.zoom, view.zoom);
+                
+                const allPaths = [...pencilPaths];
+                if(isPenciling && currentPencilPath) {
+                    allPaths.push(currentPencilPath);
+                }
+
+                allPaths.forEach(path => {
+                    if (path.points.length < 2) {
+                        if (path.points.length === 1) {
+                            drawingCtx.beginPath();
+                            drawingCtx.fillStyle = path.color;
+                            drawingCtx.arc(path.points[0].x, path.points[0].y, (path.width / 2) / view.zoom, 0, Math.PI * 2);
+                            drawingCtx.fill();
+                        }
+                        return;
+                    };
+                    drawingCtx.beginPath();
+                    drawingCtx.strokeStyle = path.color;
+                    drawingCtx.lineWidth = path.width / view.zoom;
+                    drawingCtx.lineCap = 'round';
+                    drawingCtx.lineJoin = 'round';
+                    
+                    drawingCtx.moveTo(path.points[0].x, path.points[0].y);
+                    for(let i=1; i < path.points.length; i++) {
+                        drawingCtx.lineTo(path.points[i].x, path.points[i].y);
+                    }
+                    drawingCtx.stroke();
+                });
+                drawingCtx.restore();
+            }
+
+            // --- Coordinate & Bound Conversion ---
+            function getMapPixelBounds() {
+                let minPxX = Infinity, maxPxX = -Infinity, minPxY = Infinity, maxPxY = -Infinity;
+                const hexVisualWidth = baseHexSize * Math.sqrt(3);
+                const hexVisualHeight = baseHexSize * 2;
+
+                if (Object.keys(mapGrid).length === 0) {
+                    return { minPxX: 0, maxPxX: 0, minPxY: 0, maxPxY: 0, mapPixelWidth: 0, mapPixelHeight: 0, mapCenterX: 0, mapCenterY: 0};
+                }
+
+                for (const key in mapGrid) {
+                    const [q, r] = key.split(',').map(Number);
+                    const { x, y } = hexToPixel(q, r);
+                    minPxX = Math.min(minPxX, x - hexVisualWidth / 2);
+                    maxPxX = Math.max(maxPxX, x + hexVisualWidth / 2);
+                    minPxY = Math.min(minPxY, y - hexVisualHeight / 2);
+                    maxPxY = Math.max(maxPxY, y + hexVisualHeight / 2);
+                }
+
+                const mapPixelWidth = maxPxX - minPxX;
+                const mapPixelHeight = maxPxY - minPxY;
+                const mapCenterX = minPxX + mapPixelWidth / 2;
+                const mapCenterY = minPxY + mapPixelHeight / 2;
+                return {minPxX, maxPxX, minPxY, maxPxY, mapPixelWidth, mapPixelHeight, mapCenterX, mapCenterY};
+            }
+
+            function hexToPixel(q, r) {
+                const x = baseHexSize * (Math.sqrt(3) * q + Math.sqrt(3) / 2 * r);
+                const y = baseHexSize * (3 / 2 * r);
+                return { x, y };
+            }
+
+            function pixelToHex(x, y, isPencil = false) {
+                const worldX = (x - view.offsetX) / view.zoom;
+                const worldY = (y - view.offsetY) / view.zoom;
+                if(isPencil) return { x: worldX, y: worldY };
+
+                const q_frac = (Math.sqrt(3) / 3 * worldX - 1 / 3 * worldY) / baseHexSize;
+                const r_frac = (2 / 3 * worldY) / baseHexSize;
+                return axialRound(q_frac, r_frac);
+            }
+            
+            function axialRound(q_frac, r_frac) {
+                const s_frac = -q_frac - r_frac;
+                let q = Math.round(q_frac);
+                let r = Math.round(r_frac);
+                let s = Math.round(s_frac);
+                const q_diff = Math.abs(q - q_frac);
+                const r_diff = Math.abs(r - r_frac);
+                const s_diff = Math.abs(s - s_frac);
+                if (q_diff > r_diff && q_diff > s_diff) {
+                    q = -r - s;
+                } else if (r_diff > s_diff) {
+                    r = -q - s;
+                } 
+                return { q, r };
+            }
+
+            const axialDirections = [
+                { q: +1, r: 0 }, { q: +1, r: -1 }, { q: 0, r: -1 },
+                { q: -1, r: 0 }, { q: -1, r: +1 }, { q: 0, r: +1 }
+            ];
+
+            function getNeighborCoords(q, r, direction) {
+                const dir = axialDirections[direction];
+                return { q: q + dir.q, r: r + dir.r };
+            }
+
+            function getHexCorner(center, size, i) {
+                const angle_deg = 60 * i;
+                const angle_rad = Math.PI / 180 * angle_deg;
+                return {
+                    x: center.x + size * Math.cos(angle_rad),
+                    y: center.y + size * Math.sin(angle_rad)
+                };
+            }
+
+            function getTopTerrains() {
+                const topTerrains = {};
+                for (let i = layers.length - 1; i >= 0; i--) {
+                    const layer = layers[i];
+                    if (!layer.visible) continue;
+                    for (const key in layer.data) {
+                        if (layer.data[key].terrain && !topTerrains[key]) {
+                            topTerrains[key] = layer.data[key].terrain;
+                        }
+                    }
+                }
+                return topTerrains;
+            }
+
+
+            // --- Tool Logic ---
+            function applyTool(e, endHex) {
+                if (!layers.length) return;
+                const activeLayer = layers[activeLayerIndex];
+                
+                const affectedHexes = getHexesForTool(e, endHex);
+
+                affectedHexes.forEach(hex => {
+                    const key = `${hex.q},${hex.r}`;
+                    if (mapGrid[key]) {
+                        if (!activeLayer.data[key]) activeLayer.data[key] = {};
+                        
+                        if (currentTool === 'paint' || currentTool === 'line' || currentTool === 'rectangle' || currentTool === 'ellipse') {
+                           activeLayer.data[key] = { terrain: selectedTerrain };
+                        } else if (currentTool === 'place') {
+                            if (hex.q === affectedHexes[0].q && hex.r === affectedHexes[0].r) {
+                                activeLayer.data[key] = { objectKey: selectedObjectKey, size: brushSize };
+                            }
+                        } else if (currentTool === 'text') {
+                             if (hex.q === affectedHexes[0].q && hex.r === affectedHexes[0].r) {
+                                activeLayer.data[key] = {
+                                    text: textInput.value,
+                                    textSize: fontSizeInput.value,
+                                    textColor: fontColorInput.value
+                                };
+                            }
+                        } else if (currentTool === 'eraser') {
+                           if(activeLayer.data[key]) {
+                               delete activeLayer.data[key];
+                           }
+                        }
+                    }
+                });
+                drawAll();
+            }
+            
+            function getHexesForTool(e, endHex = null) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                const centerHex = endHex || pixelToHex(mouseX, mouseY);
+
+                if (currentTool === 'paint' || currentTool === 'eraser' || currentTool === 'place') {
+                    return getHexesInBrush(centerHex);
+                } else if (currentTool === 'line') {
+                    return getHexesForLine(shapeStartHex, centerHex);
+                } else if (currentTool === 'rectangle') {
+                    return getHexesForRectangle(shapeStartHex, centerHex);
+                } else if (currentTool === 'ellipse') {
+                    return getHexesForEllipse(shapeStartHex, centerHex);
+                } else if (currentTool === 'text') {
+                    return [centerHex];
+                }
+                return [];
+            }
+            
+            function getHexesInBrush(centerHex) {
+                const results = [];
+                const range = brushSize - 1;
+                for (let q = -range; q <= range; q++) {
+                    for (let r = Math.max(-range, -q - range); r <= Math.min(range, -q + range); r++) {
+                        results.push({ q: centerHex.q + q, r: centerHex.r + r });
+                    }
+                }
+                return results;
+            }
+
+            function cubeLerp(a, b, t) {
+                return { q: a.q * (1 - t) + b.q * t, r: a.r * (1 - t) + b.r * t };
+            }
+
+            function getHexesForLine(start, end) {
+                if(!start || !end) return [];
+                const n = axialDistance(start, end);
+                const results = [];
+                for (let i = 0; i <= n; i++) {
+                    const cubeCoords = cubeLerp(start, end, (1.0 / n) * i);
+                    results.push(axialRound(cubeCoords.q, cubeCoords.r));
+                }
+                return results;
+            }
+            
+            function getHexesForRectangle(start, end) {
+                if(!start || !end) return [];
+                const results = [];
+                const q_min = Math.min(start.q, end.q);
+                const q_max = Math.max(start.q, end.q);
+                const r_min = Math.min(start.r, end.r);
+                const r_max = Math.max(start.r, end.r);
+
+                for (let q = q_min; q <= q_max; q++) {
+                    for (let r = r_min; r <= r_max; r++) {
+                        results.push({ q, r });
+                    }
+                }
+                return results;
+            }
+
+            function getHexesForEllipse(start, end) {
+                if(!start || !end) return [];
+                const results = [];
+                const centerQ = (start.q + end.q) / 2;
+                const centerR = (start.r + end.r) / 2;
+                const radiusQ = Math.abs(start.q - end.q) / 2;
+                const radiusR = Math.abs(start.r - end.r) / 2;
+
+                const q_min = Math.floor(centerQ - radiusQ);
+                const q_max = Math.ceil(centerQ + radiusQ);
+                const r_min = Math.floor(centerR - radiusR);
+                const r_max = Math.ceil(centerR + radiusR);
+                
+                for (let q = q_min; q <= q_max; q++) {
+                    for (let r = r_min; r <= r_max; r++) {
+                        if (radiusQ === 0 || radiusR === 0) continue;
+                        const dq = (q - centerQ) / radiusQ;
+                        const dr = (r - centerR) / radiusR;
+                        if( (dq * dq) + (dr * dr) <= 1) {
+                             results.push({ q, r });
+                        }
+                    }
+                }
+                return results;
+            }
+            
+            function axialDistance(hexA, hexB) {
+                return (Math.abs(hexA.q - hexB.q) + Math.abs(hexA.q + hexA.r - hexB.q - hexB.r) + Math.abs(hexA.r - hexB.r)) / 2;
+            }
+
+            // --- Layer Management ---
+            function renderLayers() {
+                layerList.innerHTML = '';
+                layers.forEach((layer, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'layer-item';
+                    item.classList.toggle('active', index === activeLayerIndex);
+                    item.dataset.index = index;
+                    
+                    const label = document.createElement('div');
+                    label.className = 'layer-label';
+                    label.textContent = layer.name;
+                    
+                    const controls = document.createElement('div');
+                    controls.className = 'layer-controls';
+                    
+                    const visBtn = document.createElement('button');
+                    visBtn.innerHTML = layer.visible 
+                        ? `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`
+                        : `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+                    visBtn.title = "Toggle Visibility";
+                    visBtn.onclick = (e) => { e.stopPropagation(); toggleLayerVisibility(index); };
+                    
+                    const upBtn = document.createElement('button');
+                    upBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>`;
+                    upBtn.title = "Move Up";
+                    upBtn.onclick = (e) => { e.stopPropagation(); moveLayer(index, -1); };
+                    
+                    const downBtn = document.createElement('button');
+                    downBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+                    downBtn.title = "Move Down";
+                    downBtn.onclick = (e) => { e.stopPropagation(); moveLayer(index, 1); };
+                    
+                    item.onclick = () => { activeLayerIndex = index; renderLayers(); };
+                    
+                    controls.appendChild(visBtn);
+                    controls.appendChild(upBtn);
+                    controls.appendChild(downBtn);
+                    item.appendChild(label);
+                    item.appendChild(controls);
+                    layerList.appendChild(item);
+                });
+            }
+
+            function addNewLayer(name = 'New Layer') {
+                const newName = name === 'New Layer' ? `${name} ${layers.length + 1}` : name;
+                layers.push({ name: newName, visible: true, data: {} });
+                activeLayerIndex = layers.length - 1;
+                renderLayers();
+            }
+
+            function deleteActiveLayer() {
+                if (layers.length <= 1) {
+                    showModal("You cannot delete the last layer.");
+                    return;
+                }
+                layers.splice(activeLayerIndex, 1);
+                if (activeLayerIndex >= layers.length) {
+                    activeLayerIndex = layers.length - 1;
+                }
+                renderLayers();
+                drawAll();
+            }
+
+            function moveLayer(index, direction) {
+                if ((index === 0 && direction === -1) || (index === layers.length - 1 && direction === 1)) {
+                    return;
+                }
+                const newIndex = index + direction;
+                [layers[index], layers[newIndex]] = [layers[newIndex], layers[index]];
+                activeLayerIndex = newIndex;
+                renderLayers();
+                drawAll();
+            }
+
+            function toggleLayerVisibility(index) {
+                layers[index].visible = !layers[index].visible;
+                renderLayers();
+                drawAll();
+            }
+            
+            // --- File Management ---
+            function getSafeFilename(name) {
+                return name.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'untitled-map';
+            }
+
+            function saveAsPNG() {
+                if (mapName.trim() === '' || mapName.toLowerCase().includes('untitled')) {
+                    showModal("Please enter a unique name for your map before saving.");
+                    return;
+                }
+                const { mapPixelWidth, mapPixelHeight, minPxX, minPxY } = getMapPixelBounds();
+                const offscreenCanvas = document.createElement('canvas');
+                offscreenCanvas.width = mapPixelWidth;
+                offscreenCanvas.height = mapPixelHeight;
+                const offscreenCtx = offscreenCanvas.getContext('2d');
+                
+                drawFrame(offscreenCtx, { width: mapPixelWidth, height: mapPixelHeight, minPxX, minPxY });
+                
+                const dataUrl = offscreenCanvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.download = `${getSafeFilename(mapName)}.png`;
+                link.href = dataUrl;
+                link.click();
+            }
+
+            function saveAsJSON() {
+                 if (mapName.trim() === '' || mapName.toLowerCase().includes('untitled')) {
+                    showModal("Please enter a unique name for your map before saving.");
+                    return;
+                }
+                const mapData = {
+                    name: mapName,
+                    scale: mapScale,
+                    grid: mapGrid,
+                    layers: layers
+                };
+                const jsonString = JSON.stringify(mapData, null, 2);
+                const blob = new Blob([jsonString], {type: "application/json"});
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.download = `${getSafeFilename(mapName)}.json`;
+                link.href = url;
+                link.click();
+                URL.revokeObjectURL(url);
+            }
+
+            function loadFromJSON(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const loadedData = JSON.parse(event.target.result);
+                        if (loadedData && loadedData.grid && Array.isArray(loadedData.layers)) {
+                            mapGrid = loadedData.grid;
+                            layers = loadedData.layers;
+                            mapName = loadedData.name || 'Untitled Loaded Map';
+                            mapScale = loadedData.scale || 10;
+                            mapNameInput.value = mapName;
+                            mapScaleInput.value = mapScale;
+                            activeLayerIndex = 0;
+                            renderLayers();
+                            centerView();
+                        } else {
+                            throw new Error("Invalid map file format.");
+                        }
+                    } catch (err) {
+                        showModal("Error: Could not load map. File may be corrupt or in the wrong format.");
+                        console.error(err);
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = '';
+            }
+
+
+            // --- Event Listeners ---
+            function addEventListeners() {
+                window.addEventListener('resize', resizeCanvas);
+                canvas.addEventListener('contextmenu', e => e.preventDefault());
+                
+                canvas.addEventListener('mousedown', e => {
+                    const rect = canvas.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+
+                    if (e.button === 2) { // Right-click for panning
+                        isPanning = true;
+                        panStart = { x: e.clientX, y: e.clientY };
+                        canvas.classList.add('panning');
+                        return;
+                    }
+
+                    if (e.button === 0) { // Left-click for tools
+                        const isShapeTool = ['line', 'rectangle', 'ellipse'].includes(currentTool);
+                        
+                        if (currentTool === 'pencil') {
+                            isPenciling = true;
+                            currentPencilPath = { color: pencilColor, width: pencilWidth, points: [] };
+                            const worldPoint = pixelToHex(mouseX, mouseY, true);
+                            currentPencilPath.points.push(worldPoint);
+                            drawAll(); // Draw the initial point
+                        } else if (isShapeTool) {
+                             isDrawingShape = true;
+                             shapeStartHex = pixelToHex(mouseX, mouseY);
+                        } else if (currentTool === 'paint' || currentTool === 'eraser') {
+                            isPainting = true;
+                            applyTool(e);
+                        } else {
+                            applyTool(e);
+                        }
+                    }
+                });
+                
+                canvas.addEventListener('mousemove', e => {
+                    if (isPanning) {
+                        view.offsetX += e.clientX - panStart.x;
+                        view.offsetY += e.clientY - panStart.y;
+                        panStart = { x: e.clientX, y: e.clientY };
+                        drawAll();
+                        return;
+                    }
+
+                    const rect = canvas.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+
+                    if (isPenciling && currentPencilPath) {
+                        const worldPoint = pixelToHex(mouseX, mouseY, true);
+                        currentPencilPath.points.push(worldPoint);
+                        drawAll();
+                    } else if (isDrawingShape) {
+                        previewCtx.clearRect(0,0, previewCanvas.width, previewCanvas.height);
+                        const currentHex = pixelToHex(mouseX, mouseY);
+                        const shapeHexes = getHexesForTool(e, currentHex);
+
+                        previewCtx.save();
+                        previewCtx.translate(view.offsetX, view.offsetY);
+                        previewCtx.scale(view.zoom, view.zoom);
+                        shapeHexes.forEach(hex => {
+                            const {x, y} = hexToPixel(hex.q, hex.r);
+                            drawHex(previewCtx, x, y, 'rgba(100, 150, 255, 0.5)');
+                        });
+                        previewCtx.restore();
+                        drawAll();
+                    } else if (isPainting) {
+                        applyTool(e);
+                    }
+                });
+                
+                canvas.addEventListener('mouseup', e => {
+                    if (e.button === 0) { // Left-click release
+                        if (isPenciling) {
+                            if (currentPencilPath && currentPencilPath.points.length > 0) {
+                                pencilPaths.push(currentPencilPath);
+                            }
+                            isPenciling = false;
+                            currentPencilPath = null;
+                        } else if (isDrawingShape) {
+                            const rect = canvas.getBoundingClientRect();
+                            const mouseX = e.clientX - rect.left;
+                            const mouseY = e.clientY - rect.top;
+                            const endHex = pixelToHex(mouseX, mouseY);
+                            applyTool(e, endHex);
+                            isDrawingShape = false;
+                            shapeStartHex = null;
+                            previewCtx.clearRect(0,0, previewCanvas.width, previewCanvas.height);
+                            drawAll();
+                        }
+                        isPainting = false;
+                    }
+                    
+                    if (e.button === 2) { // Right-click release
+                         isPanning = false;
+                         canvas.classList.remove('panning');
+                    }
+                });
+                
+                canvas.addEventListener('mouseleave', () => {
+                     if (isPenciling) {
+                        if(currentPencilPath && currentPencilPath.points.length > 0) {
+                           pencilPaths.push(currentPencilPath);
+                        }
+                        isPenciling = false;
+                        currentPencilPath = null;
+                    }
+                    isPanning = false;
+                    isPainting = false;
+                    isDrawingShape = false;
+                    canvas.classList.remove('panning');
+                });
+
+                canvas.addEventListener('wheel', e => {
+                    e.preventDefault();
+                    const zoomIntensity = 0.1;
+                    const wheel = e.deltaY < 0 ? 1 : -1;
+                    const zoom = Math.exp(wheel * zoomIntensity);
+
+                    const rect = canvas.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+                    
+                    const worldX = (mouseX - view.offsetX) / view.zoom;
+                    const worldY = (mouseY - view.offsetY) / view.zoom;
+
+                    const newZoom = Math.max(0.1, Math.min(5, view.zoom * zoom));
+                    
+                    view.offsetX = mouseX - worldX * newZoom;
+                    view.offsetY = mouseY - worldY * newZoom;
+                    view.zoom = newZoom;
+
+                    drawAll();
+                });
+
+
+                // Control panel listeners
+                mapNameInput.addEventListener('input', (e) => { mapName = e.target.value; });
+                mapScaleInput.addEventListener('input', (e) => { mapScale = parseInt(e.target.value) || 10; });
+                brushSizeSlider.addEventListener('input', e => {
+                    brushSize = parseInt(e.target.value);
+                    brushSizeValue.textContent = brushSize;
+                });
+                zoomInBtn.addEventListener('click', () => { view.zoom = Math.min(5, view.zoom * 1.25); drawAll(); });
+                zoomOutBtn.addEventListener('click', () => { view.zoom = Math.max(0.1, view.zoom / 1.25); drawAll(); });
+                
+                gridColorPicker.addEventListener('input', e => {
+                    gridColor = e.target.value;
+                    drawAll();
+                });
+                gridVisibleCheckbox.addEventListener('change', e => {
+                    isGridVisible = e.target.checked;
+                    drawAll();
+                });
+
+
+                eraserBtn.addEventListener('click', () => { currentTool = 'eraser'; updateActiveSwatches(); });
+                toolPaintBtn.addEventListener('click', () => { currentTool = 'paint'; updateActiveSwatches(); });
+                toolLineBtn.addEventListener('click', () => { currentTool = 'line'; updateActiveSwatches(); });
+                toolRectBtn.addEventListener('click', () => { currentTool = 'rectangle'; updateActiveSwatches(); });
+                toolEllipseBtn.addEventListener('click', () => { currentTool = 'ellipse'; updateActiveSwatches(); });
+                toolPencilBtn.addEventListener('click', () => { currentTool = 'pencil'; updateActiveSwatches(); });
+                
+                pencilColorPicker.addEventListener('input', e => { pencilColor = e.target.value; });
+                pencilWidthSlider.addEventListener('input', e => {
+                    pencilWidth = parseInt(e.target.value);
+                    pencilWidthValue.textContent = pencilWidth;
+                });
+
+                resetViewBtn.addEventListener('click', centerView);
+                
+                addLayerBtn.addEventListener('click', () => addNewLayer());
+                deleteLayerBtn.addEventListener('click', deleteActiveLayer);
+                
+                textHeader.addEventListener('click', () => {
+                    currentTool = 'text';
+                    updateActiveSwatches();
+                });
+
+                generateBaseMapBtn.addEventListener('click', () => {
+                    showModal("Generate a new blank map? This will delete all layers and current work.", () => {
+                        generateBaseMap();
+                    });
+                });
+                
+                graphicsBtn.addEventListener('click', () => {
+                    graphicsContent.classList.toggle('hidden');
+                    graphicsChevron.classList.toggle('rotate-180');
+                });
+                
+                fileMenuBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    fileDropdownMenu.classList.toggle('hidden');
+                });
+                window.addEventListener('click', (e) => { 
+                    if (!controlContainer.contains(e.target) && !collapsedBar.contains(e.target) && controlContainer.classList.contains('open')) {
+                        togglePanel(true);
+                    }
+                    if (!fileMenuBtn.contains(e.target) && !fileDropdownMenu.contains(e.target)) {
+                       fileDropdownMenu.classList.add('hidden');
+                    }
+                    if(!graphicsBtn.contains(e.target) && !graphicsContent.contains(e.target)) {
+                        graphicsContent.classList.add('hidden');
+                        graphicsChevron.classList.remove('rotate-180');
+                    }
+                });
+                 controlContainer.addEventListener('click', e => e.stopPropagation());
+
+
+                savePngBtn.addEventListener('click', saveAsPNG);
+                saveJsonBtn.addEventListener('click', saveAsJSON);
+                loadJsonBtn.addEventListener('click', () => loadJsonInput.click());
+                loadJsonInput.addEventListener('change', loadFromJSON);
+
+                accordionHeaders.forEach((header) => {
+                    header.addEventListener('click', () => {
+                        const content = header.nextElementSibling;
+                        const isCurrentlyOpen = !content.classList.contains('hidden');
+                        
+                        accordionHeaders.forEach(h => h.nextElementSibling.classList.add('hidden'));
+                        accordionHeaders.forEach(h => h.classList.add('collapsed'));
+
+                        if(!isCurrentlyOpen) {
+                            content.classList.remove('hidden');
+                            header.classList.remove('collapsed');
+                        }
+                    });
+                });
+
+                collapseBtn.addEventListener('click', () => togglePanel(true));
+                collapsedBar.addEventListener('click', () => togglePanel(false));
+
+                // Gemini API listeners
+                aiForgeBtn.addEventListener('click', handleAiFullMapGeneration);
+                aiAlterMapBtn.addEventListener('click', handleAiMapAlteration);
+            }
+
+            // --- Gemini API Functions ---
+            async function handleAiFullMapGeneration() {
+                const userPrompt = aiForgePrompt.value;
+                if (!userPrompt) {
+                    showModal("Please describe the world you want to create in the AI World Forge.");
+                    return;
+                }
+                
+                showModal("Forge a new world with AI? This will delete all layers and current work.", async () => {
+                    setButtonLoading(aiForgeBtn, true);
+
+                    const allHexes = Object.keys(mapGrid);
+                    const terrainList = Object.keys(terrains).join(', ');
+                    
+                    const fullPrompt = `You are an expert fantasy cartographer. Your task is to design a complete hex map based on a user's high-level description.
+                    User's Vision: "${userPrompt}"
+                    
+                    The map is a grid of axial hex coordinates. You must return a terrain type for every single hex coordinate provided.
+                    The available terrains are: ${terrainList}.
+                    
+                    Follow these cartographic principles:
+                    1.  **Geography:** Create believable landmasses, coastlines, mountains, and biomes. Mountains often form in ranges. Deserts can form in the center of large continents or in the rain shadow of mountains.
+                    2.  **Ecology:** Place terrains logically. For example, 'sand' should be along coasts, 'plains' or 'grass' next to that, then 'forest' and 'hills', and finally 'mountain' and 'snow' at the highest elevations.
+                    3.  **Completeness:** You must provide a valid terrain type for every hex coordinate in the list I provide.
+                    
+                    Here is the complete list of hex coordinates for the map in "q,r" format: ${allHexes.join('; ')}.
+                    
+                    Your response must be a single valid JSON array of objects, where each object has "q", "r", and "terrain" keys. For example: [{"q":0,"r":0,"terrain":"grass"},{"q":0,"r":1,"terrain":"water"}, ...].
+                    Do not include any text, markdown, or explanation outside of the JSON array itself.`;
+                    
+                    const payload = { contents: [{ role: "user", parts: [{ text: fullPrompt }] }] };
+                    const apiKey = ""; // Leave empty, handled by environment
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                    try {
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (!response.ok) throw new Error(`API request failed with status ${response.status}`);
+
+                        const result = await response.json();
+                        if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
+                            const rawText = result.candidates[0].content.parts[0].text;
+                            const cleanedText = rawText.replace(/```json|```/g, '').trim();
+                            const newTerrains = JSON.parse(cleanedText);
+
+                            const groundLayer = { name: 'Ground', visible: true, data: {} };
+                            newTerrains.forEach(item => {
+                                const key = `${item.q},${item.r}`;
+                                if (mapGrid[key] && terrains[item.terrain]) {
+                                    groundLayer.data[key] = { terrain: item.terrain };
+                                }
+                            });
+                            layers = [groundLayer, { name: 'Objects', visible: true, data: {} }];
+                            activeLayerIndex = 0;
+                            renderLayers();
+                            drawAll();
+
+                        } else {
+                            throw new Error("Invalid response structure from API.");
+                        }
+                    } catch (error) {
+                        console.error("AI World Forge Error:", error);
+                        let modalMessage = "Sorry, there was an error forging the world. The AI may have provided an invalid layout. Please try a different prompt.";
+                        if (error.message.includes('401')) {
+                           modalMessage = "AI Forge failed due to an authentication error (401). This may be an issue with the API key configuration in this environment.";
+                        }
+                        showModal(modalMessage);
+                    } finally {
+                        setButtonLoading(aiForgeBtn, false);
+                    }
+                });
+            }
+
+
+            async function handleAiMapAlteration() {
+                const promptText = aiAlterPrompt.value;
+                if (!promptText) {
+                    showModal("Please describe the changes you want to make.");
+                    return;
+                }
+                
+                setButtonLoading(aiAlterMapBtn, true);
+
+                const groundLayer = layers.find(l => l.name === 'Ground') || layers[0];
+                
+                let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
+                Object.keys(mapGrid).forEach(key => {
+                    const [q, r] = key.split(',').map(Number);
+                    minQ = Math.min(minQ, q);
+                    maxQ = Math.max(maxQ, q);
+                    minR = Math.min(minR, r);
+                    maxR = Math.max(maxR, r);
+                });
+
+                const terrainList = Object.keys(terrains).join(', ');
+                const fullPrompt = `You are an expert cartographer. Your task is to modify a hex grid map based on a user's request, following logical geographic principles.
+                User Request: "${promptText}".
+                Map Boundaries: q is from ${minQ} to ${maxQ}, and r is from ${minR} to ${maxR}.
+                Available Terrains: ${terrainList}.
+                Return a JSON array of objects with "q", "r", and "terrain" keys representing *only the hexes that need to change*.
+                For example, if the user asks for "a river from north to south", you should identify a path of hexes and return them with the "water" terrain type.
+                Your response must be a valid JSON array of objects.`;
+                
+                const payload = {
+                    contents: [{ role: "user", parts: [{ text: fullPrompt }] }]
+                };
+                
+                const apiKey = ""; // Leave empty, handled by environment
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorBody = await response.text();
+                        console.error("API Error Body:", errorBody);
+                        throw new Error(`API request failed with status ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
+                        const rawText = result.candidates[0].content.parts[0].text;
+                        const cleanedText = rawText.replace(/```json|```/g, '').trim();
+                        const changes = JSON.parse(cleanedText);
+
+                        changes.forEach(item => {
+                            const key = `${item.q},${item.r}`;
+                            if(mapGrid[key] && terrains[item.terrain]) { // Validate data from AI
+                                if (!groundLayer.data[key]) groundLayer.data[key] = {};
+                                groundLayer.data[key].terrain = item.terrain;
+                            }
+                        });
+                        drawAll();
+                    } else {
+                        throw new Error("Invalid response structure from API.");
+                    }
+                } catch (error) {
+                    console.error("AI Map Alteration Error:", error);
+                    let modalMessage = "Sorry, there was an error altering the map. Please try a different prompt.";
+                    if (error.message.includes('401')) {
+                        modalMessage = "AI Alteration failed due to an authentication error (401). This may be an issue with the API key configuration in this environment.";
+                    }
+                    showModal(modalMessage);
+                } finally {
+                    setButtonLoading(aiAlterMapBtn, false);
+                }
+            }
+
+
+            // --- UI Population & Updates ---
+            function populateSelectors() {
+                terrainSelector.innerHTML = '';
+                Object.keys(terrains).forEach(key => {
+                    const itemContainer = document.createElement('div');
+                    itemContainer.className = 'item-container';
+                    itemContainer.dataset.terrain = key;
+                    itemContainer.addEventListener('click', () => { currentTool = 'paint'; selectedTerrain = key; updateActiveSwatches(); });
+                    itemContainer.innerHTML = `
+                        <div class="texture-swatch" style="background-color: ${terrains[key].color};"></div>
+                        <div class="item-label">${terrains[key].name}</div>
+                    `;
+                    terrainSelector.appendChild(itemContainer);
+                });
+
+                objectSelector.innerHTML = '';
+                Object.keys(objectCategories).forEach(mainCatKey => {
+                    const mainCat = objectCategories[mainCatKey];
+                    Object.keys(mainCat).forEach(subCatKey => {
+                        const subCat = mainCat[subCatKey];
+                        Object.keys(subCat).forEach(objKey => {
+                            const item = subCat[objKey];
+                            const fullKey = `${mainCatKey}.${subCatKey}.${objKey}`;
+                            const itemContainer = document.createElement('div');
+                            itemContainer.className = 'item-container';
+                            itemContainer.dataset.objectKey = fullKey;
+                            itemContainer.addEventListener('click', () => { currentTool = 'place'; selectedObjectKey = fullKey; updateActiveSwatches(); });
+                            itemContainer.innerHTML = `
+                                 <div class="object-swatch">${item.symbol}</div>
+                                 <div class="item-label">${item.name}</div>
+                            `;
+                            objectSelector.appendChild(itemContainer);
+                        });
+                    });
+                });
+                
+                updateActiveSwatches();
+            }
+
+            function updateActiveSwatches() {
+                document.querySelectorAll('.control-panel.active, button.active, .item-container.active').forEach(el => el.classList.remove('active'));
+                canvas.classList.remove('pencil');
+                if (textToolPanel) textToolPanel.classList.remove('active');
+                if (pencilToolPanel) pencilToolPanel.classList.add('hidden');
+                
+                drawingCanvas.style.pointerEvents = 'none';
+
+                const toolButtons = {
+                    paint: toolPaintBtn,
+                    pencil: toolPencilBtn,
+                    line: toolLineBtn,
+                    rectangle: toolRectBtn,
+                    ellipse: toolEllipseBtn,
+                    eraser: eraserBtn
+                };
+
+                if(toolButtons[currentTool]) {
+                    toolButtons[currentTool].classList.add('active');
+                }
+
+                if(currentTool === 'pencil') {
+                    pencilToolPanel.classList.remove('hidden');
+                    canvas.classList.add('pencil');
+                }
+
+                if (currentTool === 'place') document.querySelector(`.item-container[data-object-key="${selectedObjectKey}"]`)?.classList.add('active');
+                else if (currentTool === 'text') textToolPanel.classList.add('active');
+                
+                if(['paint', 'line', 'rectangle', 'ellipse'].includes(currentTool)) {
+                    document.querySelector(`.item-container[data-terrain="${selectedTerrain}"]`)?.classList.add('active');
+                }
+            }
+
+            // --- Modals and Loaders ---
+            function setButtonLoading(button, isLoading) {
+                if(isLoading) {
+                    button.disabled = true;
+                    button.innerHTML = '<div class="spinner"></div>';
+                } else {
+                    button.disabled = false;
+                    button.innerHTML = button.dataset.originalText || '';
+                }
+            }
+
+            function showModal(message, onConfirm) {
+                const existingModal = document.querySelector('.modal-backdrop');
+                if(existingModal) existingModal.remove();
+
+                const modalBackdrop = document.createElement('div');
+                modalBackdrop.className = 'modal-backdrop fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50';
+                modalBackdrop.innerHTML = `
+                    <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-sm text-white">
+                        <p class="mb-6 text-center">${message}</p>
+                        <div class="flex justify-end gap-4">
+                            ${onConfirm ? `<button id="modalConfirm" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 transition">Confirm</button>` : ''}
+                            <button id="modalCancel" class="px-4 py-2 rounded bg-gray-600 hover:bg-gray-500 transition">${onConfirm ? 'Cancel' : 'OK'}</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modalBackdrop);
+                modalBackdrop.querySelector('#modalCancel').onclick = () => document.body.removeChild(modalBackdrop);
+                if (onConfirm) {
+                    modalBackdrop.querySelector('#modalConfirm').onclick = () => {
+                        onConfirm();
+                        document.body.removeChild(modalBackdrop);
+                    };
+                }
+            }
+
+            // --- Initial Call ---
+            initialize();
+        });
+    </script>
+</body>
+</html>
