@@ -524,7 +524,6 @@
             let view = { zoom: 1, offsetX: 0, offsetY: 0 };
             let gridColor = '#111827';
             let isGridVisible = true;
-            let isBlendingEnabled = true;
             let isPanning = false;
             let panStart = { x: 0, y: 0 };
             let isDrawingShape = false;
@@ -741,12 +740,8 @@
                 for (const key in mapGrid) {
                     const [q, r] = key.split(',').map(Number);
                     const terrain = topTerrains[key] || 'water'; 
-                    if (isBlendingEnabled) {
-                        drawBlendedHex(targetCtx, q, r, terrain, topTerrains);
-                    } else {
-                        const {x, y} = hexToPixel(q, r);
-                        drawHex(targetCtx, x, y, terrains[terrain].color);
-                    }
+                    const {x, y} = hexToPixel(q, r);
+                    drawHex(targetCtx, x, y, terrains[terrain].color);
                 }
                 
                 if (isGridVisible) {
@@ -791,34 +786,6 @@
                 targetCtx.closePath();
                 targetCtx.fillStyle = fillStyle;
                 targetCtx.fill();
-            }
-
-            function drawBlendedHex(targetCtx, q, r, terrain, topTerrains) {
-                const centerColor = terrains[terrain].color;
-                const pCenter = hexToPixel(q, r);
-
-                for (let i = 0; i < 6; i++) {
-                    const corner1 = getHexCorner(pCenter, baseHexSize, i);
-                    const corner2 = getHexCorner(pCenter, baseHexSize, i + 1);
-                    
-                    const neighborCoords = getNeighborCoords(q, r, i);
-                    const neighborTerrain = topTerrains[`${neighborCoords.q},${neighborCoords.r}`];
-                    const neighborColor = neighborTerrain ? terrains[neighborTerrain].color : centerColor;
-                    
-                    const midPoint = { x: (corner1.x + corner2.x) / 2, y: (corner1.y + corner2.y) / 2 };
-                    
-                    const gradient = targetCtx.createLinearGradient(pCenter.x, pCenter.y, midPoint.x, midPoint.y);
-                    gradient.addColorStop(0, centerColor);
-                    gradient.addColorStop(1, neighborColor);
-
-                    targetCtx.fillStyle = gradient;
-                    targetCtx.beginPath();
-                    targetCtx.moveTo(pCenter.x, pCenter.y);
-                    targetCtx.lineTo(corner1.x, corner1.y);
-                    targetCtx.lineTo(corner2.x, corner2.y);
-                    targetCtx.closePath();
-                    targetCtx.fill();
-                }
             }
 
             function drawHexOutline(targetCtx, x, y, strokeStyle) {
@@ -1542,7 +1509,9 @@
                             body: JSON.stringify(payload)
                         });
 
-                        if (!response.ok) throw new Error(`API request failed with status ${response.status}`);
+                        if (!response.ok) {
+                            throw new Error(`API request failed with status ${response.status}`);
+                        }
 
                         const result = await response.json();
                         if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
