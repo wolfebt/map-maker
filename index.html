@@ -363,7 +363,7 @@
                             <button id="resetViewBtn" title="Reset View & Zoom">Center</button>
                         </div>
                     </div>
-                                        
+                                    
                     <div class="control-panel mb-6">
                         <div id="aiToolsHeader" class="collapsible-header collapsed">
                             <h3>✨ AI Tools</h3>
@@ -444,7 +444,7 @@
                              </div>
                          </div>
 
-                          <div class="control-panel mb-4">
+                         <div class="control-panel mb-4">
                              <h3 class="!border-b-0 !pb-2 text-base font-semibold">Grid Options</h3>
                              <div class="grid grid-cols-2 gap-4 items-center">
                                  <div>
@@ -457,9 +457,17 @@
                                  </div>
                              </div>
                          </div>
+                         
+                         <div class="control-panel mb-4">
+                            <h3 class="!border-b-0 !pb-2 text-base font-semibold">Brush Mode</h3>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button id="brushModeFreeformBtn">Freeform</button>
+                                <button id="brushModeHexBtn">Hex</button>
+                            </div>
+                        </div>
 
-                          <div class="control-panel">
-                              <h3 class="!border-b-0 !pb-2 text-base font-semibold">Map Generation</h3>
+                         <div class="control-panel">
+                             <h3 class="!border-b-0 !pb-2 text-base font-semibold">Map Generation</h3>
                              <div id="mapGenerationContent" class="collapsible-content">
                                  <div class="mb-4">
                                      <h4 class="font-semibold text-gray-200 mb-2">Map Shape</h4>
@@ -515,6 +523,7 @@
             let layers = [];
             let activeLayerIndex = 0;
             let currentTool = 'paint';
+            let brushMode = 'freeform'; // 'hex' or 'freeform'
             let brushSize = 1;
             let selectedTerrain = 'grass';
             let selectedObjectKey = 'Fantasy.Outside.tree';
@@ -533,6 +542,8 @@
             let isPenciling = false;
             let currentPencilPath = null;
             let pencilPaths = [];
+            let freeformPaths = [];
+            let currentFreeformPath = null;
 
             // Undo/Redo Stacks
             let undoStack = [];
@@ -590,6 +601,8 @@
             const controlContainer = document.getElementById('controlContainer');
             const collapseBtn = document.getElementById('collapseBtn');
             const collapsedBar = document.getElementById('collapsedBar');
+            const brushModeFreeformBtn = document.getElementById('brushModeFreeformBtn');
+            const brushModeHexBtn = document.getElementById('brushModeHexBtn');
             
             // Accordion elements
             const accordionHeaders = document.querySelectorAll('.collapsible-header');
@@ -637,6 +650,7 @@
                 gridColorPicker.value = gridColor;
                 gridVisibleCheckbox.checked = isGridVisible;
                 updateUndoRedoButtons();
+                updateBrushModeUI();
             }
             
             function togglePanel(isCollapsed) {
@@ -663,6 +677,7 @@
                 mapGrid = generateBaseMapGrid(shape, width, height, radius);
                 layers = [{ name: 'Ground', visible: true, data: {} }, { name: 'Objects', visible: true, data: {} }];
                 pencilPaths = [];
+                freeformPaths = [];
                 undoStack = [];
                 redoStack = [];
                 activeLayerIndex = 0;
@@ -728,6 +743,7 @@
                     ctx.clearRect(0,0, canvas.width, canvas.height);
                     drawingCtx.clearRect(0,0, drawingCanvas.width, drawingCanvas.height);
                     drawFrame(ctx);
+                    drawFreeformPaths();
                     drawPencilPaths();
                 });
             }
@@ -822,6 +838,41 @@
                 targetCtx.fillText(text, x, y);
             }
             
+            function drawFreeformPaths() {
+                drawingCtx.save();
+                drawingCtx.translate(view.offsetX, view.offsetY);
+                drawingCtx.scale(view.zoom, view.zoom);
+                drawingCtx.lineCap = 'round';
+                drawingCtx.lineJoin = 'round';
+
+                const allPaths = [...freeformPaths];
+                if (isPainting && currentFreeformPath) {
+                    allPaths.push(currentFreeformPath);
+                }
+
+                allPaths.forEach(path => {
+                    if (path.points.length < 1) return;
+
+                    drawingCtx.beginPath();
+                    drawingCtx.lineWidth = path.width / view.zoom;
+
+                    if (path.tool === 'eraser') {
+                        drawingCtx.globalCompositeOperation = 'destination-out';
+                    } else {
+                        drawingCtx.globalCompositeOperation = 'source-over';
+                        drawingCtx.strokeStyle = path.color;
+                    }
+
+                    drawingCtx.moveTo(path.points[0].x, path.points[0].y);
+                    for (let i = 1; i < path.points.length; i++) {
+                        drawingCtx.lineTo(path.points[i].x, path.points[i].y);
+                    }
+                    drawingCtx.stroke();
+                });
+
+                drawingCtx.restore();
+            }
+
             function drawPencilPaths() {
                 drawingCtx.save();
                 drawingCtx.translate(view.offsetX, view.offsetY);
@@ -837,12 +888,13 @@
                         if (path.points.length === 1) {
                             drawingCtx.beginPath();
                             drawingCtx.fillStyle = path.color;
-                            drawingCtx.arc(path.points[0].x, path.points[0].y, (path.width / 2) / view.zoom, 0, Math.PI * 2);
+                            drawingCtx.arc(path.points[0].x, path.points[0].y, (path.width / 2), 0, Math.PI * 2);
                             drawingCtx.fill();
                         }
                         return;
                     };
                     drawingCtx.beginPath();
+                    drawingCtx.globalCompositeOperation = 'source-over'; // Ensure pencil draws normally
                     drawingCtx.strokeStyle = path.color;
                     drawingCtx.lineWidth = path.width / view.zoom;
                     drawingCtx.lineCap = 'round';
@@ -889,10 +941,10 @@
                 return { x, y };
             }
 
-            function pixelToHex(x, y, isPencil = false) {
+            function pixelToHex(x, y, isFreeform = false) {
                 const worldX = (x - view.offsetX) / view.zoom;
                 const worldY = (y - view.offsetY) / view.zoom;
-                if(isPencil) return { x: worldX, y: worldY };
+                if(isFreeform) return { x: worldX, y: worldY };
 
                 const q_frac = (Math.sqrt(3) / 3 * worldX - 1 / 3 * worldY) / baseHexSize;
                 const r_frac = (2 / 3 * worldY) / baseHexSize;
@@ -953,7 +1005,8 @@
             function saveState() {
                 undoStack.push({
                     layers: JSON.parse(JSON.stringify(layers)),
-                    pencilPaths: JSON.parse(JSON.stringify(pencilPaths))
+                    pencilPaths: JSON.parse(JSON.stringify(pencilPaths)),
+                    freeformPaths: JSON.parse(JSON.stringify(freeformPaths))
                 });
                 redoStack = [];
                 updateUndoRedoButtons();
@@ -963,15 +1016,18 @@
                 if (undoStack.length === 0) return;
                 const currentState = {
                     layers: JSON.parse(JSON.stringify(layers)),
-                    pencilPaths: JSON.parse(JSON.stringify(pencilPaths))
+                    pencilPaths: JSON.parse(JSON.stringify(pencilPaths)),
+                    freeformPaths: JSON.parse(JSON.stringify(freeformPaths))
                 };
                 redoStack.push(currentState);
                 
                 const previousState = undoStack.pop();
                 layers = previousState.layers;
                 pencilPaths = previousState.pencilPaths;
+                freeformPaths = previousState.freeformPaths;
 
                 drawAll();
+                renderLayers();
                 updateUndoRedoButtons();
             }
 
@@ -979,15 +1035,18 @@
                 if (redoStack.length === 0) return;
                 const currentState = {
                     layers: JSON.parse(JSON.stringify(layers)),
-                    pencilPaths: JSON.parse(JSON.stringify(pencilPaths))
+                    pencilPaths: JSON.parse(JSON.stringify(pencilPaths)),
+                    freeformPaths: JSON.parse(JSON.stringify(freeformPaths))
                 };
                 undoStack.push(currentState);
 
                 const nextState = redoStack.pop();
                 layers = nextState.layers;
                 pencilPaths = nextState.pencilPaths;
+                freeformPaths = nextState.freeformPaths;
                 
                 drawAll();
+                renderLayers();
                 updateUndoRedoButtons();
             }
 
@@ -1225,14 +1284,68 @@
                 offscreenCanvas.height = mapPixelHeight;
                 const offscreenCtx = offscreenCanvas.getContext('2d');
                 
+                // Draw the base hex map first
                 drawFrame(offscreenCtx, { width: mapPixelWidth, height: mapPixelHeight, minPxX, minPxY });
                 
+                // Overlay the drawing canvas content (freeform paths, pencil paths)
+                const tempDrawingCanvas = document.createElement('canvas');
+                tempDrawingCanvas.width = canvas.width;
+                tempDrawingCanvas.height = canvas.height;
+                const tempDrawingCtx = tempDrawingCanvas.getContext('2d');
+                
+                // We need to redraw paths without view transformations for the export
+                tempDrawingCtx.save();
+                tempDrawingCtx.translate(-minPxX, -minPxY); // Translate to the map's origin
+                drawFreeformPathsForExport(tempDrawingCtx);
+                drawPencilPathsForExport(tempDrawingCtx);
+                tempDrawingCtx.restore();
+
+                // Now draw the temporary canvas onto the main export canvas
+                offscreenCtx.drawImage(tempDrawingCanvas, minPxX, minPxY, mapPixelWidth, mapPixelHeight, 0, 0, mapPixelWidth, mapPixelHeight);
+
                 const dataUrl = offscreenCanvas.toDataURL('image/png');
                 const link = document.createElement('a');
                 link.download = `${getSafeFilename(mapName)}.png`;
                 link.href = dataUrl;
                 link.click();
             }
+
+            function drawPencilPathsForExport(targetCtx) {
+                 targetCtx.lineCap = 'round';
+                 targetCtx.lineJoin = 'round';
+                 pencilPaths.forEach(path => {
+                     if (path.points.length < 2) return;
+                     targetCtx.beginPath();
+                     targetCtx.strokeStyle = path.color;
+                     targetCtx.lineWidth = path.width;
+                     targetCtx.moveTo(path.points[0].x, path.points[0].y);
+                     for (let i = 1; i < path.points.length; i++) {
+                         targetCtx.lineTo(path.points[i].x, path.points[i].y);
+                     }
+                     targetCtx.stroke();
+                 });
+            }
+
+            function drawFreeformPathsForExport(targetCtx) {
+                targetCtx.lineCap = 'round';
+                targetCtx.lineJoin = 'round';
+                freeformPaths.forEach(path => {
+                    if (path.points.length < 1) return;
+                    targetCtx.beginPath();
+                    targetCtx.lineWidth = path.width;
+                    if (path.tool === 'eraser') {
+                       // Eraser can't be exported easily this way, skip for now
+                    } else {
+                        targetCtx.strokeStyle = path.color;
+                    }
+                    targetCtx.moveTo(path.points[0].x, path.points[0].y);
+                    for (let i = 1; i < path.points.length; i++) {
+                        targetCtx.lineTo(path.points[i].x, path.points[i].y);
+                    }
+                    targetCtx.stroke();
+                });
+            }
+
 
             function saveAsJSON() {
                  if (mapName.trim() === '' || mapName.toLowerCase().includes('untitled')) {
@@ -1243,7 +1356,9 @@
                     name: mapName,
                     scale: mapScale,
                     grid: mapGrid,
-                    layers: layers
+                    layers: layers,
+                    pencilPaths: pencilPaths,
+                    freeformPaths: freeformPaths,
                 };
                 const jsonString = JSON.stringify(mapData, null, 2);
                 const blob = new Blob([jsonString], {type: "application/json"});
@@ -1266,6 +1381,8 @@
                         if (loadedData && loadedData.grid && Array.isArray(loadedData.layers)) {
                             mapGrid = loadedData.grid;
                             layers = loadedData.layers;
+                            pencilPaths = loadedData.pencilPaths || [];
+                            freeformPaths = loadedData.freeformPaths || [];
                             mapName = loadedData.name || 'Untitled Loaded Map';
                             mapScale = loadedData.scale || 10;
                             mapNameInput.value = mapName;
@@ -1307,9 +1424,21 @@
                     }
 
                     if (e.button === 0) { // Left-click for tools
-                        const isShapeTool = ['line', 'rectangle', 'ellipse'].includes(currentTool);
-                        
-                        if (currentTool === 'pencil') {
+                        if (currentTool === 'paint' || currentTool === 'eraser') {
+                            isPainting = true;
+                            if (brushMode === 'freeform') {
+                                saveState();
+                                const worldPoint = pixelToHex(mouseX, mouseY, true);
+                                currentFreeformPath = {
+                                    tool: currentTool,
+                                    color: currentTool === 'eraser' ? 'black' : terrains[selectedTerrain].color,
+                                    width: brushSize * 10,
+                                    points: [worldPoint]
+                                };
+                            } else { // hex mode
+                                applyTool(e);
+                            }
+                        } else if (currentTool === 'pencil') {
                             const startHex = pixelToHex(mouseX, mouseY);
                             if(mapGrid[`${startHex.q},${startHex.r}`]) {
                                 saveState();
@@ -1317,16 +1446,16 @@
                                 currentPencilPath = { color: pencilColor, width: pencilWidth, points: [] };
                                 const worldPoint = pixelToHex(mouseX, mouseY, true);
                                 currentPencilPath.points.push(worldPoint);
-                                drawAll(); // Draw the initial point
+                                drawAll();
                             }
-                        } else if (isShapeTool) {
-                             isDrawingShape = true;
-                             shapeStartHex = pixelToHex(mouseX, mouseY);
-                        } else if (currentTool === 'paint' || currentTool === 'eraser') {
-                            isPainting = true;
-                            applyTool(e);
-                        } else {
-                            applyTool(e);
+                        } else { // Other hex-based tools
+                            const isShapeTool = ['line', 'rectangle', 'ellipse'].includes(currentTool);
+                            if (isShapeTool) {
+                                isDrawingShape = true;
+                                shapeStartHex = pixelToHex(mouseX, mouseY);
+                            } else {
+                                applyTool(e);
+                            }
                         }
                     }
                 });
@@ -1344,7 +1473,17 @@
                     const mouseX = e.clientX - rect.left;
                     const mouseY = e.clientY - rect.top;
 
-                    if (isPenciling && currentPencilPath) {
+                    if (isPainting) {
+                        if (brushMode === 'freeform') {
+                            if (currentFreeformPath) {
+                                const worldPoint = pixelToHex(mouseX, mouseY, true);
+                                currentFreeformPath.points.push(worldPoint);
+                                drawAll();
+                            }
+                        } else {
+                            applyTool(e);
+                        }
+                    } else if (isPenciling && currentPencilPath) {
                         const currentHex = pixelToHex(mouseX, mouseY);
                          if(mapGrid[`${currentHex.q},${currentHex.r}`]) {
                             const worldPoint = pixelToHex(mouseX, mouseY, true);
@@ -1365,20 +1504,28 @@
                         });
                         previewCtx.restore();
                         drawAll();
-                    } else if (isPainting) {
-                        applyTool(e);
                     }
                 });
                 
                 canvas.addEventListener('mouseup', e => {
                     if (e.button === 0) { // Left-click release
+                        if (isPainting) {
+                            if (brushMode === 'freeform' && currentFreeformPath) {
+                                if (currentFreeformPath.points.length > 0) {
+                                    freeformPaths.push(currentFreeformPath);
+                                }
+                                currentFreeformPath = null;
+                            }
+                            isPainting = false;
+                        }
                         if (isPenciling) {
                             if (currentPencilPath && currentPencilPath.points.length > 0) {
                                 pencilPaths.push(currentPencilPath);
                             }
                             isPenciling = false;
                             currentPencilPath = null;
-                        } else if (isDrawingShape) {
+                        } 
+                        if (isDrawingShape) {
                             const rect = canvas.getBoundingClientRect();
                             const mouseX = e.clientX - rect.left;
                             const mouseY = e.clientY - rect.top;
@@ -1389,7 +1536,6 @@
                             previewCtx.clearRect(0,0, previewCanvas.width, previewCanvas.height);
                             drawAll();
                         }
-                        isPainting = false;
                     }
                     
                     if (e.button === 2) { // Right-click release
@@ -1400,14 +1546,22 @@
                 
                 canvas.addEventListener('mouseleave', () => {
                      if (isPenciling) {
-                        if(currentPencilPath && currentPencilPath.points.length > 0) {
-                           pencilPaths.push(currentPencilPath);
+                         if(currentPencilPath && currentPencilPath.points.length > 0) {
+                            pencilPaths.push(currentPencilPath);
+                         }
+                         isPenciling = false;
+                         currentPencilPath = null;
+                     }
+                     if (isPainting) {
+                        if (brushMode === 'freeform' && currentFreeformPath) {
+                            if (currentFreeformPath.points.length > 0) {
+                                freeformPaths.push(currentFreeformPath);
+                            }
+                            currentFreeformPath = null;
                         }
-                        isPenciling = false;
-                        currentPencilPath = null;
-                    }
+                        isPainting = false;
+                     }
                     isPanning = false;
-                    isPainting = false;
                     isDrawingShape = false;
                     canvas.classList.remove('panning');
                 });
@@ -1515,6 +1669,9 @@
                 saveJsonBtn.addEventListener('click', saveAsJSON);
                 loadJsonBtn.addEventListener('click', () => loadJsonInput.click());
                 loadJsonInput.addEventListener('change', loadFromJSON);
+                
+                brushModeFreeformBtn.addEventListener('click', () => { brushMode = 'freeform'; updateBrushModeUI(); });
+                brushModeHexBtn.addEventListener('click', () => { brushMode = 'hex'; updateBrushModeUI(); });
 
                 accordionHeaders.forEach((header) => {
                     header.addEventListener('click', () => {
@@ -1541,7 +1698,7 @@
 
             // --- Gemini API Functions ---
             async function handleAiFullMapGeneration() {
-                const userPrompt = aiForgePrompt.value;
+                const userPrompt = document.getElementById('aiForgePrompt').value;
                 if (!userPrompt) {
                     showModal("Please describe the world you want to create in the AI World Forge.");
                     return;
@@ -1621,7 +1778,7 @@
 
 
             async function handleAiMapAlteration() {
-                const promptText = aiAlterPrompt.value;
+                const promptText = document.getElementById('aiAlterPrompt').value;
                 if (!promptText) {
                     showModal("Please describe the changes you want to make.");
                     return;
@@ -1738,6 +1895,16 @@
                 updateActiveSwatches();
             }
 
+            function updateBrushModeUI() {
+                if (brushMode === 'freeform') {
+                    brushModeFreeformBtn.classList.add('active');
+                    brushModeHexBtn.classList.remove('active');
+                } else {
+                    brushModeHexBtn.classList.add('active');
+                    brushModeFreeformBtn.classList.remove('active');
+                }
+            }
+
             function updateActiveSwatches() {
                 document.querySelectorAll('.control-panel.active, button.active, .item-container.active').forEach(el => el.classList.remove('active'));
                 canvas.classList.remove('pencil');
@@ -1769,6 +1936,15 @@
                 
                 if(['paint', 'line', 'rectangle', 'ellipse'].includes(currentTool)) {
                     document.querySelector(`.item-container[data-terrain="${selectedTerrain}"]`)?.classList.add('active');
+                }
+                
+                const isFreeformCompatible = ['paint', 'eraser'].includes(currentTool);
+                brushModeFreeformBtn.disabled = !isFreeformCompatible;
+                brushModeHexBtn.disabled = !isFreeformCompatible;
+
+                if (!isFreeformCompatible && brushMode !== 'hex') {
+                    brushMode = 'hex';
+                    updateBrushModeUI();
                 }
             }
 
