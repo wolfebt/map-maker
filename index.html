@@ -128,6 +128,10 @@
             align-items: center;
             border-bottom: 1px solid #374151;
             padding-bottom: 0.5rem;
+            transition: background-color 0.2s;
+        }
+        .collapsible-header.active {
+             background-color: #3b82f6;
         }
         .collapsible-header svg {
             transition: transform 0.3s;
@@ -548,6 +552,7 @@
             let layers = [];
             let activeLayerIndex = 0;
             let currentTool = 'terrain';
+            let nextClickAction = null;
             let terrainBrushMode = 'hex';
             let pencilBrushMode = 'freestyle';
             let brushSize = 1;
@@ -560,8 +565,8 @@
             let panStart = { x: 0, y: 0 };
             let isDrawingShape = false;
             let shapeStartPoint = null;
-            let previewCanvas = document.createElement('canvas'); // Restored
-            let previewCtx = previewCanvas.getContext('2d'); // Restored
+            let previewCanvas = document.createElement('canvas');
+            let previewCtx = previewCanvas.getContext('2d');
             let isPainting = false;
             let pencilColor = '#FFFFFF';
             let pencilWidth = 5;
@@ -1120,35 +1125,32 @@
                 redoBtn.disabled = redoStack.length === 0;
             }
 
-            function applyTool(e, endHex) {
+            function applyTool(e, endHex, toolOverride = null) {
                 if (!layers.length) return;
-                saveState(); // Save state before applying tool
+                const toolToUse = toolOverride || currentTool;
+
+                if (toolToUse !== 'pencil') saveState(); 
 
                 const activeLayer = layers[activeLayerIndex];
-                const affectedHexes = getHexesForTool(e, endHex);
+                const affectedHexes = getHexesForTool(e, endHex, toolToUse);
 
                 affectedHexes.forEach(hex => {
                     const key = `${hex.q},${hex.r}`;
-                    if (mapGrid[key]) { // <-- BORDER CHECK
+                    if (mapGrid[key]) {
                         if (!activeLayer.data[key]) activeLayer.data[key] = {};
                         
-                        if (currentTool === 'terrain') {
-                           // Preserve other data in the hex like objects/text
+                        if (toolToUse === 'terrain') {
                            activeLayer.data[key] = { ...activeLayer.data[key], terrain: selectedTerrain };
-                        } else if (currentTool === 'place') {
-                            if (hex.q === affectedHexes[0].q && hex.r === affectedHexes[0].r) {
-                                activeLayer.data[key] = { ...activeLayer.data[key], objectKey: selectedObjectKey, size: brushSize };
-                            }
-                        } else if (currentTool === 'text') {
-                             if (hex.q === affectedHexes[0].q && hex.r === affectedHexes[0].r) {
-                                activeLayer.data[key] = {
-                                    ...activeLayer.data[key],
-                                    text: textInput.value,
-                                    textSize: fontSizeInput.value,
-                                    textColor: fontColorInput.value
-                                };
-                            }
-                        } else if (currentTool === 'eraser') {
+                        } else if (toolToUse === 'placeObject') {
+                            activeLayer.data[key] = { ...activeLayer.data[key], objectKey: selectedObjectKey, size: brushSize };
+                        } else if (toolToUse === 'placeText') {
+                            activeLayer.data[key] = {
+                                ...activeLayer.data[key],
+                                text: textInput.value,
+                                textSize: fontSizeInput.value,
+                                textColor: fontColorInput.value
+                            };
+                        } else if (toolToUse === 'eraser') {
                            if(activeLayer.data[key]) {
                                delete activeLayer.data[key];
                            }
@@ -1158,14 +1160,15 @@
                 drawAll();
             }
             
-            function getHexesForTool(e, endHex = null) {
+            function getHexesForTool(e, endHex, toolOverride = null) {
+                const toolToUse = toolOverride || currentTool;
                 const rect = canvas.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
                 const mouseY = e.clientY - rect.top;
                 const centerHex = endHex || pixelToHex(mouseX, mouseY);
                 const startHex = shapeStartPoint ? axialRound(shapeStartPoint.q, shapeStartPoint.r) : centerHex;
 
-                if (currentTool === 'terrain') {
+                if (toolToUse === 'terrain') {
                     switch(terrainBrushMode) {
                         case 'hex':
                         case 'freestyle':
@@ -1177,10 +1180,10 @@
                         case 'ellipse':
                             return getHexesForEllipse(startHex, centerHex);
                     }
-                } else if (currentTool === 'place' || currentTool === 'eraser') {
+                } else if (toolToUse === 'placeObject' || toolToUse === 'placeText') {
+                     return [centerHex];
+                } else if (toolToUse === 'eraser') {
                      return getHexesInBrush(centerHex);
-                } else if (currentTool === 'text') {
-                    return [centerHex];
                 }
                 return [];
             }
@@ -1498,6 +1501,14 @@
                     }
 
                     if (e.button === 0) { // Left-click for tools
+                        if (nextClickAction) {
+                            applyTool(e, null, nextClickAction);
+                            nextClickAction = null;
+                            currentTool = 'terrain'; // Revert to terrain tool after placement
+                            updateActiveSwatches();
+                            return;
+                        }
+
                         const brushMode = currentTool === 'terrain' ? terrainBrushMode : pencilBrushMode;
                         const isShapeMode = ['line', 'rectangle', 'ellipse'].includes(brushMode);
 
@@ -1673,8 +1684,8 @@
                 });
 
 
-                toolTerrainBtn.addEventListener('click', () => { currentTool = 'terrain'; updateActiveSwatches(); });
-                toolPencilBtn.addEventListener('click', () => { currentTool = 'pencil'; updateActiveSwatches(); });
+                toolTerrainBtn.addEventListener('click', () => { currentTool = 'terrain'; nextClickAction = null; updateActiveSwatches(); });
+                toolPencilBtn.addEventListener('click', () => { currentTool = 'pencil'; nextClickAction = null; updateActiveSwatches(); });
                 terrainBrushModeSelect.addEventListener('change', (e) => { terrainBrushMode = e.target.value; });
                 pencilBrushModeSelect.addEventListener('change', (e) => { pencilBrushMode = e.target.value; });
 
@@ -1691,7 +1702,7 @@
                 deleteLayerBtn.addEventListener('click', deleteActiveLayer);
                 
                 textHeader.addEventListener('click', () => {
-                    currentTool = 'text';
+                    nextClickAction = 'placeText';
                     updateActiveSwatches();
                 });
 
@@ -1801,7 +1812,12 @@
                     const itemContainer = document.createElement('div');
                     itemContainer.className = 'item-container';
                     itemContainer.dataset.terrain = key;
-                    itemContainer.addEventListener('click', () => { currentTool = 'terrain'; selectedTerrain = key; updateActiveSwatches(); });
+                    itemContainer.addEventListener('click', () => { 
+                        currentTool = 'terrain'; 
+                        selectedTerrain = key; 
+                        nextClickAction = null;
+                        updateActiveSwatches(); 
+                    });
                     
                     const swatch = document.createElement('div');
                     swatch.className = 'texture-swatch';
@@ -1827,7 +1843,11 @@
                             const itemContainer = document.createElement('div');
                             itemContainer.className = 'item-container';
                             itemContainer.dataset.objectKey = fullKey;
-                            itemContainer.addEventListener('click', () => { currentTool = 'place'; updateActiveSwatches(); });
+                            itemContainer.addEventListener('click', () => { 
+                                nextClickAction = 'placeObject'; 
+                                selectedObjectKey = fullKey;
+                                updateActiveSwatches(); 
+                            });
                             itemContainer.innerHTML = `
                                  <div class="object-swatch">${item.symbol}</div>
                                  <div class="item-label">${item.name}</div>
@@ -1841,15 +1861,20 @@
             }
 
             function updateActiveSwatches() {
-                toolTerrainBtn.classList.remove('active');
-                toolPencilBtn.classList.remove('active');
+                // Clear all active states first
+                document.querySelectorAll('.active').forEach(el => el.classList.remove('active'));
                 terrainOptionsPanel.classList.add('hidden');
                 pencilOptionsPanel.classList.add('hidden');
                 canvas.classList.remove('pencil');
 
-                if (currentTool === 'terrain') {
+                if (nextClickAction === 'placeObject') {
+                    document.querySelector(`.item-container[data-object-key="${selectedObjectKey}"]`)?.classList.add('active');
+                } else if (nextClickAction === 'placeText') {
+                    textHeader.classList.add('active');
+                } else if (currentTool === 'terrain') {
                     toolTerrainBtn.classList.add('active');
                     terrainOptionsPanel.classList.remove('hidden');
+                    document.querySelector(`.item-container[data-terrain="${selectedTerrain}"]`)?.classList.add('active');
                 } else if (currentTool === 'pencil') {
                     toolPencilBtn.classList.add('active');
                     pencilOptionsPanel.classList.remove('hidden');
