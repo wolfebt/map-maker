@@ -1356,71 +1356,82 @@
                     return;
                 }
                 const { mapPixelWidth, mapPixelHeight, minPxX, minPxY } = getMapPixelBounds();
+                
+                if (mapPixelWidth <= 0 || mapPixelHeight <= 0) {
+                    showModal("Cannot save an empty map.");
+                    return;
+                }
+
                 const offscreenCanvas = document.createElement('canvas');
                 offscreenCanvas.width = mapPixelWidth;
                 offscreenCanvas.height = mapPixelHeight;
                 const offscreenCtx = offscreenCanvas.getContext('2d');
-                
-                // Draw the base hex map first
-                drawFrame(offscreenCtx, { width: mapPixelWidth, height: mapPixelHeight, minPxX, minPxY });
-                
-                // Overlay the drawing canvas content (freeform paths, pencil paths)
-                const tempDrawingCanvas = document.createElement('canvas');
-                tempDrawingCanvas.width = canvas.width;
-                tempDrawingCanvas.height = canvas.height;
-                const tempDrawingCtx = tempDrawingCanvas.getContext('2d');
-                
-                // We need to redraw paths without view transformations for the export
-                tempDrawingCtx.save();
-                tempDrawingCtx.translate(-minPxX, -minPxY); // Translate to the map's origin
-                drawFreeformPathsForExport(tempDrawingCtx);
-                drawPencilPathsForExport(tempDrawingCtx);
-                tempDrawingCtx.restore();
 
-                // Now draw the temporary canvas onto the main export canvas
-                offscreenCtx.drawImage(tempDrawingCanvas, minPxX, minPxY, mapPixelWidth, mapPixelHeight, 0, 0, mapPixelWidth, mapPixelHeight);
+                // Set a background color
+                offscreenCtx.fillStyle = '#374151'; // bg-gray-700
+                offscreenCtx.fillRect(0, 0, mapPixelWidth, mapPixelHeight);
 
+                // The bounds object tells drawFrame how to translate the context
+                const bounds = { width: mapPixelWidth, height: mapPixelHeight, minPxX, minPxY };
+                
+                // Draw the main map content (hexes, objects, text)
+                drawFrame(offscreenCtx, bounds);
+                
+                // Now draw the pencil paths and freeform paths on top
+                // These paths are stored in world coordinates, so we just need to translate the context
+                offscreenCtx.save();
+                offscreenCtx.translate(-minPxX, -minPxY);
+                
+                // Draw pencil paths (freestyle, line, rect, ellipse)
+                pencilPaths.forEach(path => {
+                    offscreenCtx.beginPath();
+                    offscreenCtx.strokeStyle = path.color;
+                    offscreenCtx.lineWidth = path.width; // No division by zoom
+                    offscreenCtx.lineCap = 'round';
+                    offscreenCtx.lineJoin = 'round';
+
+                    if (path.type === 'freestyle') {
+                        if (path.points.length < 2) return;
+                        offscreenCtx.moveTo(path.points[0].x, path.points[0].y);
+                        for(let i=1; i < path.points.length; i++) {
+                            offscreenCtx.lineTo(path.points[i].x, path.points[i].y);
+                        }
+                    } else if (path.type === 'line') {
+                        offscreenCtx.moveTo(path.start.x, path.start.y);
+                        offscreenCtx.lineTo(path.end.x, path.end.y);
+                    } else if (path.type === 'rectangle') {
+                        offscreenCtx.rect(path.start.x, path.start.y, path.end.x - path.start.x, path.end.y - path.start.y);
+                    } else if (path.type === 'ellipse') {
+                        const rx = Math.abs(path.end.x - path.start.x) / 2;
+                        const ry = Math.abs(path.end.y - path.start.y) / 2;
+                        const cx = path.start.x + (path.end.x - path.start.x) / 2;
+                        const cy = path.start.y + (path.end.y - path.start.y) / 2;
+                        offscreenCtx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
+                    }
+                    offscreenCtx.stroke();
+                });
+
+                // Draw freeform terrain paths
+                freeformPaths.forEach(path => {
+                    if (path.points.length < 1) return;
+                    offscreenCtx.beginPath();
+                    offscreenCtx.lineWidth = path.width;
+                    offscreenCtx.strokeStyle = path.color;
+                    offscreenCtx.moveTo(path.points[0].x, path.points[0].y);
+                    for (let i = 1; i < path.points.length; i++) {
+                        offscreenCtx.lineTo(path.points[i].x, path.points[i].y);
+                    }
+                    offscreenCtx.stroke();
+                });
+
+                offscreenCtx.restore();
+
+                // Generate the image and trigger download
                 const dataUrl = offscreenCanvas.toDataURL('image/png');
                 const link = document.createElement('a');
                 link.download = `${getSafeFilename(mapName)}.png`;
                 link.href = dataUrl;
                 link.click();
-            }
-
-            function drawPencilPathsForExport(targetCtx) {
-                 targetCtx.lineCap = 'round';
-                 targetCtx.lineJoin = 'round';
-                 pencilPaths.forEach(path => {
-                     if (path.points.length < 2) return;
-                     targetCtx.beginPath();
-                     targetCtx.strokeStyle = path.color;
-                     targetCtx.lineWidth = path.width;
-                     targetCtx.moveTo(path.points[0].x, path.points[0].y);
-                     for (let i = 1; i < path.points.length; i++) {
-                         targetCtx.lineTo(path.points[i].x, path.points[i].y);
-                     }
-                     targetCtx.stroke();
-                 });
-            }
-
-            function drawFreeformPathsForExport(targetCtx) {
-                targetCtx.lineCap = 'round';
-                targetCtx.lineJoin = 'round';
-                freeformPaths.forEach(path => {
-                    if (path.points.length < 1) return;
-                    targetCtx.beginPath();
-                    targetCtx.lineWidth = path.width;
-                    if (path.tool === 'eraser') {
-                       // Eraser can't be exported easily this way, skip for now
-                    } else {
-                        targetCtx.strokeStyle = path.color;
-                    }
-                    targetCtx.moveTo(path.points[0].x, path.points[0].y);
-                    for (let i = 1; i < path.points.length; i++) {
-                        targetCtx.lineTo(path.points[i].x, path.points[i].y);
-                    }
-                    targetCtx.stroke();
-                });
             }
 
 
