@@ -5,11 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TTRPG Hex Map Maker</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         /* General Styles */
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Trebuchet MS', sans-serif;
             overflow: hidden;
             background-color: #1f2937; /* bg-gray-800 */
             color: #d1d5db; /* text-gray-300 */
@@ -327,7 +326,12 @@
         <div id="panelWrapper">
             <div id="controlContainer" class="control-container p-4 flex flex-col shadow-lg">
                 <div class="flex justify-between items-center mb-4 flex-shrink-0 relative">
-                    <h2 class="text-2xl font-bold text-gray-100">Map Controls</h2>
+                    <div class="flex items-center">
+                        <h2 class="text-2xl font-bold text-gray-100">Map Controls</h2>
+                        <button id="userGuideBtn" class="ml-2 p-1 rounded-md hover:bg-gray-700" title="Open User Guide">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                        </button>
+                    </div>
                     <div class="flex items-center">
                         <button id="fileMenuBtn" class="p-2 rounded-md hover:bg-gray-700">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
@@ -630,6 +634,7 @@
             const panelWrapper = document.getElementById('panelWrapper');
             const collapseBtn = document.getElementById('collapseBtn');
             const collapsedBar = document.getElementById('collapsedBar');
+            const userGuideBtn = document.getElementById('userGuideBtn');
             
             // Accordion elements
             const accordionHeaders = document.querySelectorAll('.collapsible-header');
@@ -886,7 +891,7 @@
             }
 
             function drawText(targetCtx, x, y, text, size, color) {
-                targetCtx.font = `${size}px Inter`;
+                targetCtx.font = `${size}px 'Trebuchet MS'`;
                 targetCtx.fillStyle = color;
                 targetCtx.textAlign = 'center';
                 targetCtx.textBaseline = 'middle';
@@ -1426,6 +1431,13 @@
 
                 offscreenCtx.restore();
 
+                // Add creator tag
+                const tagText = "TTRPG HEX MAP MAKER by Wolfe.BT@TangentLLC";
+                offscreenCtx.font = "200 14px 'Trebuchet MS'";
+                offscreenCtx.fillStyle = "rgba(0, 0, 0, 0.8)";
+                offscreenCtx.textAlign = "left";
+                offscreenCtx.fillText(tagText, 10, mapPixelHeight - 10);
+
                 // Generate the image and trigger download
                 const dataUrl = offscreenCanvas.toDataURL('image/png');
                 const link = document.createElement('a');
@@ -1758,6 +1770,7 @@
 
                 collapseBtn.addEventListener('click', () => togglePanel(true));
                 collapsedBar.addEventListener('click', () => togglePanel(false));
+                userGuideBtn.addEventListener('click', showUserGuide);
             }
 
             // --- UI Population & Updates ---
@@ -1894,6 +1907,66 @@
             }
 
             // --- Modals and Loaders ---
+            function showUserGuide() {
+                const guideHTML = `
+                    <div class="text-left text-sm text-gray-300 space-y-4">
+                        <h3 class="text-xl font-bold text-white">Welcome to the TTRPG Hex Map Maker!</h3>
+                        <p>This guide will walk you through all the features of the map maker, helping you create detailed and beautiful hex maps for your tabletop games.</p>
+                        
+                        <h4 class="text-lg font-bold text-white border-t border-gray-600 pt-3 mt-4">1. The Interface at a Glance</h4>
+                        <p>The screen is divided into three main areas:</p>
+                        <ul class="list-disc list-inside space-y-1 pl-4">
+                            <li><strong>Left:</strong> The <strong>Control Panel</strong> is where you'll find all your tools for drawing, painting, and managing your map.</li>
+                            <li><strong>Center:</strong> The <strong>Canvas</strong> is your main workspace where you'll build your map.</li>
+                            <li><strong>Top-Right:</strong> Here you can set your <strong>Map Name</strong> and the <strong>Map's Scale</strong>.</li>
+                        </ul>
+
+                        <h4 class="text-lg font-bold text-white border-t border-gray-600 pt-3 mt-4">2. The Control Panel: Your Creative Toolkit</h4>
+                        <p>The control panel on the left contains everything you need to build your world.</p>
+                        
+                        <h5 class="text-md font-semibold text-white">Main Tools</h5>
+                        <p>At the very top, you have two primary tool modes:</p>
+                        <ul class="list-disc list-inside space-y-1 pl-4">
+                            <li><strong>Terrain:</strong> This mode is for painting the landscape with different terrain types like grass, water, and mountains.</li>
+                            <li><strong>Pencil:</strong> This mode is for drawing freehand lines and shapes on top of your map, perfect for roads, rivers, or political borders.</li>
+                        </ul>
+
+                        <h5 class="text-md font-semibold text-white">Tool Options</h5>
+                        <p>Depending on which main tool is active, a panel will appear below it with options:</p>
+                        <ul class="list-disc list-inside space-y-1 pl-4">
+                            <li><strong>If "Terrain" is selected:</strong> A dropdown lets you choose how you paint terrain: <strong>Hex</strong> (default), <strong>Freestyle</strong>, <strong>Line</strong>, <strong>Rectangle</strong>, or <strong>Ellipse</strong>.</li>
+                            <li><strong>If "Pencil" is selected:</strong> A dropdown lets you choose what you draw: <strong>Freestyle</strong>, <strong>Line</strong>, <strong>Rectangle</strong>, or <strong>Ellipse</strong>. You can also set the color and width.</li>
+                        </ul>
+
+                        <h5 class="text-md font-semibold text-white">Actions Panel</h5>
+                        <p>This section gives you quick access to common map functions like <strong>Zoom</strong>, <strong>Undo/Redo</strong>, <strong>Eraser</strong>, and <strong>Center</strong> view.</p>
+
+                        <h5 class="text-md font-semibold text-white">Terrain Type, Objects, and Text</h5>
+                        <p>These sections work with a "select, then place" system.</p>
+                         <ul class="list-disc list-inside space-y-1 pl-4">
+                            <li><strong>To Place Terrain:</strong> Make sure the <strong>Terrain</strong> tool is active, select a terrain type, then click or drag on the canvas.</li>
+                            <li><strong>To Place an Object or Text:</strong> Click an <strong>Object</strong> or the <strong>Text</strong> header. Your next single click on the map will place that item. The tool then reverts to Terrain mode.</li>
+                        </ul>
+
+                        <h4 class="text-lg font-bold text-white border-t border-gray-600 pt-3 mt-4">3. Graphics & Map Options (Bottom Panel)</h4>
+                        <p>Click the "Graphics Options" button to find advanced settings like <strong>Layers</strong>, <strong>Grid Options</strong>, and <strong>Map Generation</strong>.</p>
+                        
+                        <h4 class="text-lg font-bold text-white border-t border-gray-600 pt-3 mt-4">4. Saving and Loading</h4>
+                        <p>Click the <strong>File Icon</strong> (📄) at the top of the control panel to save your map as a PNG image or a ".json" project file (which you can load later).</p>
+                        
+                        <h4 class="text-lg font-bold text-white border-t border-gray-600 pt-3 mt-4">5. Navigating the Canvas</h4>
+                        <ul class="list-disc list-inside space-y-1 pl-4">
+                            <li><strong>Pan:</strong> Hold down the <strong>right mouse button</strong> and drag.</li>
+                            <li><strong>Zoom:</strong> Use your <strong>mouse wheel</strong>.</li>
+                        </ul>
+                        <div class="border-t border-gray-600 pt-3 mt-4 text-center text-xs text-gray-400">
+                            <p>TTRPG HEX MAP MAKER by Wolfe.BT@TangentLLC</p>
+                        </div>
+                    </div>
+                `;
+                showContentModal("User's Guide", guideHTML);
+            }
+
             function showModal(message, onConfirm) {
                 const existingModal = document.querySelector('.modal-backdrop');
                 if(existingModal) existingModal.remove();
