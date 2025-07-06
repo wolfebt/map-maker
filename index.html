@@ -1174,9 +1174,9 @@
                 const startHex = shapeStartPoint ? axialRound(shapeStartPoint.q, shapeStartPoint.r) : centerHex;
 
                 if (toolToUse === 'terrain') {
+                    if(terrainBrushMode === 'freestyle') return []; // Handled separately
                     switch(terrainBrushMode) {
                         case 'hex':
-                        case 'freestyle':
                              return getHexesInBrush(centerHex);
                         case 'line':
                             return getHexesForLine(startHex, centerHex);
@@ -1383,51 +1383,11 @@
                 drawFrame(offscreenCtx, bounds);
                 
                 // Now draw the pencil paths and freeform paths on top
-                // These paths are stored in world coordinates, so we just need to translate the context
                 offscreenCtx.save();
                 offscreenCtx.translate(-minPxX, -minPxY);
                 
-                // Draw pencil paths (freestyle, line, rect, ellipse)
-                pencilPaths.forEach(path => {
-                    offscreenCtx.beginPath();
-                    offscreenCtx.strokeStyle = path.color;
-                    offscreenCtx.lineWidth = path.width; // No division by zoom
-                    offscreenCtx.lineCap = 'round';
-                    offscreenCtx.lineJoin = 'round';
-
-                    if (path.type === 'freestyle') {
-                        if (path.points.length < 2) return;
-                        offscreenCtx.moveTo(path.points[0].x, path.points[0].y);
-                        for(let i=1; i < path.points.length; i++) {
-                            offscreenCtx.lineTo(path.points[i].x, path.points[i].y);
-                        }
-                    } else if (path.type === 'line') {
-                        offscreenCtx.moveTo(path.start.x, path.start.y);
-                        offscreenCtx.lineTo(path.end.x, path.end.y);
-                    } else if (path.type === 'rectangle') {
-                        offscreenCtx.rect(path.start.x, path.start.y, path.end.x - path.start.x, path.end.y - path.start.y);
-                    } else if (path.type === 'ellipse') {
-                        const rx = Math.abs(path.end.x - path.start.x) / 2;
-                        const ry = Math.abs(path.end.y - path.start.y) / 2;
-                        const cx = path.start.x + (path.end.x - path.start.x) / 2;
-                        const cy = path.start.y + (path.end.y - path.start.y) / 2;
-                        offscreenCtx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
-                    }
-                    offscreenCtx.stroke();
-                });
-
-                // Draw freeform terrain paths
-                freeformPaths.forEach(path => {
-                    if (path.points.length < 1) return;
-                    offscreenCtx.beginPath();
-                    offscreenCtx.lineWidth = path.width;
-                    offscreenCtx.strokeStyle = path.color;
-                    offscreenCtx.moveTo(path.points[0].x, path.points[0].y);
-                    for (let i = 1; i < path.points.length; i++) {
-                        offscreenCtx.lineTo(path.points[i].x, path.points[i].y);
-                    }
-                    offscreenCtx.stroke();
-                });
+                drawPencilPathsForExport(offscreenCtx);
+                drawFreeformPathsForExport(offscreenCtx);
 
                 offscreenCtx.restore();
 
@@ -1444,6 +1404,42 @@
                 link.download = `${getSafeFilename(mapName)}.png`;
                 link.href = dataUrl;
                 link.click();
+            }
+            
+            function drawPencilPathsForExport(targetCtx) {
+                targetCtx.lineCap = 'round';
+                targetCtx.lineJoin = 'round';
+                pencilPaths.forEach(path => {
+                    if (path.points.length < 2) return;
+                    targetCtx.beginPath();
+                    targetCtx.strokeStyle = path.color;
+                    targetCtx.lineWidth = path.width;
+                    targetCtx.moveTo(path.points[0].x, path.points[0].y);
+                    for (let i = 1; i < path.points.length; i++) {
+                        targetCtx.lineTo(path.points[i].x, path.points[i].y);
+                    }
+                    targetCtx.stroke();
+                });
+            }
+
+            function drawFreeformPathsForExport(targetCtx) {
+                targetCtx.lineCap = 'round';
+                targetCtx.lineJoin = 'round';
+                freeformPaths.forEach(path => {
+                    if (path.points.length < 1) return;
+                    targetCtx.beginPath();
+                    targetCtx.lineWidth = path.width;
+                    if (path.tool === 'eraser') {
+                       // Eraser can't be exported easily this way, skip for now
+                    } else {
+                        targetCtx.strokeStyle = path.color;
+                    }
+                    targetCtx.moveTo(path.points[0].x, path.points[0].y);
+                    for (let i = 1; i < path.points.length; i++) {
+                        targetCtx.lineTo(path.points[i].x, path.points[i].y);
+                    }
+                    targetCtx.stroke();
+                });
             }
 
 
@@ -1540,11 +1536,25 @@
                             shapeStartPoint = pixelToHex(mouseX, mouseY, true);
                         } else if (currentTool === 'terrain') {
                              isPainting = true;
-                             applyTool(e);
+                             if(terrainBrushMode === 'freestyle'){
+                                saveState();
+                                const worldPoint = pixelToHex(mouseX, mouseY, true);
+                                currentFreeformPath = {
+                                    tool: 'terrain',
+                                    color: terrains[selectedTerrain].color,
+                                    width: brushSize * 10,
+                                    points: [worldPoint]
+                                };
+                             } else {
+                                applyTool(e);
+                             }
                         } else if (currentTool === 'pencil') {
                             isPenciling = true;
                             saveState();
                             currentPencilPath = { type: 'freestyle', color: pencilColor, width: pencilWidth, points: [pixelToHex(mouseX, mouseY, true)] };
+                        } else if (currentTool === 'eraser') {
+                            isPainting = true;
+                            applyTool(e, null, 'eraser');
                         }
                     }
                 });
@@ -1601,8 +1611,15 @@
                         
                         previewCtx.restore();
                         drawAll();
-                    } else if (isPainting) { // Terrain freestyle/hex
-                        applyTool(e);
+                    } else if (isPainting) {
+                        if (currentTool === 'terrain' && terrainBrushMode === 'freestyle') {
+                            if (currentFreeformPath) {
+                                currentFreeformPath.points.push(pixelToHex(mouseX, mouseY, true));
+                                drawAll();
+                            }
+                        } else {
+                            applyTool(e, null, currentTool === 'eraser' ? 'eraser' : null);
+                        }
                     } else if (isPenciling) { // Pencil freestyle
                         currentPencilPath.points.push(pixelToHex(mouseX, mouseY, true));
                         drawAll();
@@ -1630,14 +1647,20 @@
                             }
                         }
                         
-                        isDrawingShape = false;
-                        shapeStartPoint = null;
-                        isPainting = false;
+                        if (isPainting) {
+                            if (currentTool === 'terrain' && terrainBrushMode === 'freestyle' && currentFreeformPath) {
+                                freeformPaths.push(currentFreeformPath);
+                                currentFreeformPath = null;
+                            }
+                            isPainting = false;
+                        }
                         if (isPenciling) {
                             isPenciling = false;
                             pencilPaths.push(currentPencilPath);
                             currentPencilPath = null;
                         }
+                        isDrawingShape = false;
+                        shapeStartPoint = null;
                         drawAll();
                     }
                     
@@ -1655,7 +1678,13 @@
                          isPenciling = false;
                          currentPencilPath = null;
                      }
-                     isPainting = false;
+                     if (isPainting) {
+                        if (currentTool === 'terrain' && terrainBrushMode === 'freestyle' && currentFreeformPath) {
+                            freeformPaths.push(currentFreeformPath);
+                            currentFreeformPath = null;
+                        }
+                        isPainting = false;
+                     }
                     isPanning = false;
                     isDrawingShape = false;
                     canvas.classList.remove('panning');
@@ -1771,6 +1800,7 @@
                 collapseBtn.addEventListener('click', () => togglePanel(true));
                 collapsedBar.addEventListener('click', () => togglePanel(false));
                 userGuideBtn.addEventListener('click', showUserGuide);
+                eraserBtn.addEventListener('click', () => { currentTool = 'eraser'; updateActiveSwatches(); });
             }
 
             // --- UI Population & Updates ---
@@ -1903,6 +1933,8 @@
                     toolPencilBtn.classList.add('active');
                     pencilOptionsPanel.classList.remove('hidden');
                     canvas.classList.add('pencil');
+                } else if (currentTool === 'eraser') {
+                    eraserBtn.classList.add('active');
                 }
             }
 
@@ -1965,6 +1997,33 @@
                     </div>
                 `;
                 showContentModal("User's Guide", guideHTML);
+            }
+
+            function showContentModal(title, content) {
+                const existingModal = document.querySelector('.modal-backdrop');
+                if(existingModal) existingModal.remove();
+
+                const modalBackdrop = document.createElement('div');
+                modalBackdrop.className = 'modal-backdrop fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
+                
+                modalBackdrop.innerHTML = `
+                    <div class="bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl text-white flex flex-col" style="max-height: 90vh;">
+                        <div class="flex justify-between items-center p-4 border-b border-gray-700">
+                            <h3 class="text-xl font-bold">${title}</h3>
+                            <button id="modalClose" class="p-2 rounded-full hover:bg-gray-700">&times;</button>
+                        </div>
+                        <div class="p-6 overflow-y-auto">
+                            ${content}
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modalBackdrop);
+                modalBackdrop.querySelector('#modalClose').onclick = () => document.body.removeChild(modalBackdrop);
+                modalBackdrop.onclick = (e) => {
+                    if (e.target === modalBackdrop) {
+                         document.body.removeChild(modalBackdrop);
+                    }
+                }
             }
 
             function showModal(message, onConfirm) {
