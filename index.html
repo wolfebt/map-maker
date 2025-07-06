@@ -13,19 +13,21 @@
             overflow: hidden;
             background-color: #1f2937; /* bg-gray-800 */
             color: #d1d5db; /* text-gray-300 */
+            display: flex;
         }
         
         #main-container {
-            position: relative;
+            display: flex;
             width: 100vw;
             height: 100vh;
+            position: relative;
         }
 
-        /* Top Left Controls */
-        #topLeftControls {
+        /* Top Right Controls */
+        #topRightControls {
             position: absolute;
             top: 1rem;
-            left: 1rem;
+            right: 1rem;
             z-index: 20;
             background-color: rgba(17, 24, 39, 0.8); /* bg-gray-900 with opacity */
             backdrop-filter: blur(4px);
@@ -36,7 +38,7 @@
             align-items: center;
             gap: 1rem;
         }
-        #topLeftControls input {
+        #topRightControls input {
             background-color: transparent;
             border: none;
             border-bottom: 2px solid #4b5563; /* border-gray-600 */
@@ -44,14 +46,14 @@
             color: #f9fafb; /* text-gray-50 */
             transition: border-color 0.2s;
         }
-         #topLeftControls input:focus {
+         #topRightControls input:focus {
             outline: none;
             border-bottom-color: #3b82f6; /* border-blue-500 */
         }
-        #topLeftControls #mapScaleInput {
+        #topRightControls #mapScaleInput {
              color: #9ca3af; /* text-gray-400 */
         }
-         #topLeftControls label {
+         #topRightControls label {
              font-size: 0.75rem;
              color: #9ca3af; /* text-gray-400 */
              margin-bottom: 0.1rem;
@@ -61,8 +63,9 @@
 
         /* Canvas Styles */
         #canvas-container {
-            position: absolute;
-            inset: 0;
+            flex-grow: 1;
+            position: relative;
+            height: 100%;
         }
         #mapCanvas, #drawingCanvas {
             position: absolute;
@@ -88,28 +91,23 @@
 
         /* Control Panel Styles */
         #panelWrapper {
-            position: absolute;
-            top: 0;
-            right: 0;
-            height: 100%;
+            width: 20rem; /* 320px */
+            height: 100vh;
             display: flex;
-            align-items: flex-start;
-            z-index: 10;
-            pointer-events: none; /* Allows clicks to pass through the wrapper */
+            transition: width 0.3s ease-in-out;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        #panelWrapper.closed {
+            width: 0;
         }
 
         .control-container {
             background-color: #111827; /* bg-gray-900 */
             color: #d1d5db; /* text-gray-300 */
-            width: 20rem; /* 320px */
+            width: 100%;
             height: 100%;
-            transform: translateX(100%);
-            transition: transform 0.3s ease-in-out;
             flex-shrink: 0;
-            pointer-events: auto; /* Re-enable pointer events for the panel itself */
-        }
-        .control-container.open {
-            transform: translateX(0%);
         }
 
         .control-panel {
@@ -224,15 +222,14 @@
         .collapsed-bar {
             position: absolute;
             top: 1rem;
-            right: 0;
+            left: 0;
             z-index: 5;
-            writing-mode: vertical-rl; 
-            transform: rotate(180deg); 
+            writing-mode: vertical-lr;
             background-color: #111827; 
             color: #d1d5db;
             padding: 1rem 0.5rem; 
             cursor: pointer; 
-            border-radius: 0.5rem 0 0 0.5rem; 
+            border-radius: 0 0.5rem 0.5rem 0; 
             display: flex;
             align-items: center; 
             justify-content: center; 
@@ -255,51 +252,87 @@
             background-color: #111827;
         }
 
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-        .spinner {
-            border-radius: 50%;
-            width: 1.25rem;
-            height: 1.25rem;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top-color: #fff;
-            animation: spin 1s linear infinite;
-        }
     </style>
 </head>
 <body>
+    <svg width="0" height="0" style="position:absolute;z-index:-1;">
+        <defs>
+            <pattern id="pattern-water" width="10" height="10" patternUnits="userSpaceOnUse">
+                <rect width="10" height="10" fill="#4c92c8"/>
+                <path d="M-5,5 Q-2.5,0 0,5 T5,5 T10,5 T15,5" stroke="#2b5a7a" stroke-width="1" fill="none"/>
+            </pattern>
+            <pattern id="pattern-sand" width="6" height="6" patternUnits="userSpaceOnUse">
+                <rect width="6" height="6" fill="#f0d9a0"/>
+                <circle cx="1" cy="1" r="1" fill="#b59a72"/>
+                <circle cx="4" cy="4" r="1" fill="#b59a72"/>
+            </pattern>
+            <pattern id="pattern-grass" width="10" height="10" patternUnits="userSpaceOnUse">
+                <rect width="10" height="10" fill="#86c440"/>
+                <path d="M0,10 L5,0 L10,10" stroke="#4d7225" stroke-width="1" fill="none"/>
+            </pattern>
+             <pattern id="pattern-plains" width="12" height="12" patternUnits="userSpaceOnUse">
+                <rect width="12" height="12" fill="#a6d15a"/>
+                <path d="M0 6 H12 M6 0 V12" stroke="#6d8e35" stroke-width="0.5"/>
+            </pattern>
+            <pattern id="pattern-forest" width="12" height="12" patternUnits="userSpaceOnUse">
+                <rect width="12" height="12" fill="#4a8232"/>
+                <path d="M2 10 L6 2 L10 10 Z" fill="#2a4d1c"/>
+            </pattern>
+            <pattern id="pattern-hills" width="15" height="15" patternUnits="userSpaceOnUse">
+                <rect width="15" height="15" fill="#a08b6b"/>
+                <path d="M0 15 C 5 0, 10 0, 15 15" stroke="#6b5a46" stroke-width="2" fill="none"/>
+            </pattern>
+            <pattern id="pattern-mountain" width="16" height="16" patternUnits="userSpaceOnUse">
+                <rect width="16" height="16" fill="#6f6f6f"/>
+                <path d="M0 16 L8 0 L16 16 Z" stroke="#404040" stroke-width="1" fill="#707070"/>
+            </pattern>
+            <pattern id="pattern-snow" width="10" height="10" patternUnits="userSpaceOnUse">
+                 <rect width="10" height="10" fill="#ffffff"/>
+                 <path d="M0 5 H10 M5 0 V10 M2 2 L8 8 M2 8 L8 2" stroke="#c0c0c0" stroke-width="1"/>
+            </pattern>
+            <pattern id="pattern-dirt" width="8" height="8" patternUnits="userSpaceOnUse">
+                <rect width="8" height="8" fill="#a07040"/>
+                <path d="M0 0 L8 8 M8 0 L0 8" stroke="#6b4a25" stroke-width="0.5"/>
+            </pattern>
+            <pattern id="pattern-road" width="10" height="10" patternUnits="userSpaceOnUse">
+                <rect width="10" height="10" fill="#b0a89f"/>
+                <rect x="3" y="0" width="4" height="10" fill="#888279"/>
+            </pattern>
+            <pattern id="pattern-lava" width="12" height="12" patternUnits="userSpaceOnUse">
+                <rect width="12" height="12" fill="#e25822"/>
+                <circle cx="6" cy="6" r="5" fill="#e06030" opacity="0.5"/>
+                <circle cx="3" cy="9" r="3" fill="#cc3700" opacity="0.6"/>
+            </pattern>
+            <pattern id="pattern-crags" width="10" height="10" patternUnits="userSpaceOnUse">
+                <rect width="10" height="10" fill="#5a5a5a"/>
+                <path d="M0 10 L5 0 L10 10" stroke="#303030" stroke-width="1.5" fill="none"/>
+                <path d="M0 5 L10 5" stroke="#303030" stroke-width="1" fill="none"/>
+            </pattern>
+            <pattern id="pattern-swamp" width="12" height="12" patternUnits="userSpaceOnUse">
+                <rect width="12" height="12" fill="#4d6642"/>
+                <path d="M-2,6 Q1,3 4,6 T10,6" stroke="#2c3e23" stroke-width="1.5" fill="none"/>
+                <circle cx="9" cy="3" r="1" fill="#526d1a"/>
+            </pattern>
+            <pattern id="pattern-tundra" width="10" height="10" patternUnits="userSpaceOnUse">
+                <rect width="10" height="10" fill="#cdd3d6"/>
+                <path d="M0 0 L10 10 M10 0 L0 10" stroke="#90989a" stroke-width="0.5"/>
+            </pattern>
+        </defs>
+    </svg>
     <div id="main-container">
-
-        <div id="topLeftControls">
-            <div>
-                <label for="mapNameInput">Map Name</label>
-                <input type="text" id="mapNameInput" placeholder="Untitled Map" class="text-lg w-48">
-            </div>
-            <div>
-                 <label for="mapScaleInput">Scale (m)</label>
-                 <input type="number" id="mapScaleInput" value="10" min="1" class="text-lg w-20">
-            </div>
-        </div>
-        
-        <div id="canvas-container">
-            <canvas id="mapCanvas"></canvas>
-            <canvas id="drawingCanvas"></canvas>
-        </div>
-        
         <div id="panelWrapper">
-            <div id="controlContainer" class="control-container p-6 flex flex-col shadow-lg">
-                <div class="flex justify-between items-center mb-6 flex-shrink-0 relative">
+            <div id="controlContainer" class="control-container p-4 flex flex-col shadow-lg">
+                <div class="flex justify-between items-center mb-4 flex-shrink-0 relative">
                     <h2 class="text-2xl font-bold text-gray-100">Map Controls</h2>
                     <div class="flex items-center">
                         <button id="fileMenuBtn" class="p-2 rounded-md hover:bg-gray-700">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
                         </button>
                         <button id="collapseBtn" class="p-2 rounded-md hover:bg-gray-700 ml-2" title="Hide Panel">
-                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
                         </button>
                     </div>
-                    <div id="fileDropdownMenu" class="file-dropdown hidden mt-2 right-10 top-full">
+                    <div id="fileDropdownMenu" class="file-dropdown hidden mt-2 right-0 top-full">
                         <button id="savePngBtn" class="file-dropdown-item">Save as PNG</button>
                         <button id="saveJsonBtn" class="file-dropdown-item">Save Map (.json)</button>
                         <button id="loadJsonBtn" class="file-dropdown-item">Load Map (.json)</button>
@@ -308,32 +341,36 @@
                 </div>
                 
                 <div class="flex-grow overflow-y-auto pr-2">
-                    <div class="control-panel mb-6">
-                        <h3 class="!border-b-0">Drawing Tools</h3>
-                        <div class="grid grid-cols-5 gap-2 my-2">
-                            <button id="toolPaintBtn" title="Paint Brush" class="active">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                            </button>
-                             <button id="toolPencilBtn" title="Pencil">
-                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                             </button>
-                             <button id="toolLineBtn" title="Line">
-                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                             </button>
-                             <button id="toolRectBtn" title="Rectangle">
-                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-                             </button>
-                             <button id="toolEllipseBtn" title="Ellipse">
-                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
-                             </button>
+                     <div class="control-panel mb-4">
+                        <h3 class="!border-b-0 !pb-2">Tools</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button id="toolTerrainBtn" class="active">Terrain</button>
+                            <button id="toolPencilBtn">Pencil</button>
                         </div>
-                         <label for="brushSize">Brush/Object Size: <span id="brushSizeValue">1</span></label>
-                         <input type="range" id="brushSize" min="1" max="10" value="1" class="mb-3">
                     </div>
 
-                    <div id="pencilToolPanel" class="control-panel mb-6 hidden">
-                         <h3 class="!border-b-0 !pb-2">Pencil Options</h3>
-                        <div class="grid grid-cols-2 gap-4">
+                    <div id="terrainOptionsPanel" class="control-panel mb-4">
+                        <label for="terrainBrushMode">Terrain Brush</label>
+                        <select id="terrainBrushMode">
+                            <option value="hex">Hex</option>
+                            <option value="freestyle">Freestyle</option>
+                            <option value="line">Line</option>
+                            <option value="rectangle">Rectangle</option>
+                            <option value="ellipse">Ellipse</option>
+                        </select>
+                        <label for="brushSize">Brush/Object Size: <span id="brushSizeValue">1</span></label>
+                        <input type="range" id="brushSize" min="1" max="10" value="1" class="mb-3">
+                    </div>
+
+                    <div id="pencilOptionsPanel" class="control-panel mb-4 hidden">
+                        <label for="pencilBrushMode">Pencil Mode</label>
+                        <select id="pencilBrushMode">
+                            <option value="freestyle">Freestyle</option>
+                            <option value="line">Line</option>
+                            <option value="rectangle">Rectangle</option>
+                            <option value="ellipse">Ellipse</option>
+                        </select>
+                        <div class="grid grid-cols-2 gap-4 mt-4">
                             <div>
                                 <label for="pencilColorPicker">Color</label>
                                 <input type="color" id="pencilColorPicker" value="#FFFFFF" class="!mb-0">
@@ -345,47 +382,30 @@
                         </div>
                     </div>
 
-
-                    <div class="control-panel mb-6">
-                        <h3 class="!border-b-0">Actions</h3>
-                        <div class="grid grid-cols-4 gap-2 my-2">
-                             <button id="zoomInBtn" title="Zoom In" class="text-2xl">+</button>
-                            <button id="zoomOutBtn" title="Zoom Out" class="text-2xl">-</button>
-                            <button id="undoBtn" title="Undo" disabled>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4c0 .55.45 1 1 1h3l7 7V3L7 10H4c-.55 0-1 .45-1 1Z"/></svg>
-                            </button>
-                            <button id="redoBtn" title="Redo" disabled>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 3 1 5"/><path d="m3 10 3-2 5 2.5V18l-5-2.5-3 2v-8Z"/><path d="M22 10v4c0 .55-.45 1-1 1h-3l-7 7V3l7 7h3c.55 0 1 .45 1 1Z"/></svg>
-                            </button>
-                            <button id="eraserBtn" title="Eraser">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="18" y1="9" x2='12' y2='15'></line><line x1='12' y1='9' x2='18' y2='15'></line></svg>
-                            </button>
-                            <button id="resetViewBtn" title="Reset View & Zoom">Center</button>
+                    <div class="control-panel mb-4">
+                        <div id="actionsHeader" class="collapsible-header">
+                            <h3>Actions</h3>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </div>
+                        <div id="actionsContent" class="collapsible-content">
+                            <div class="grid grid-cols-4 gap-2 my-2">
+                                 <button id="zoomInBtn" title="Zoom In" class="text-2xl">+</button>
+                                <button id="zoomOutBtn" title="Zoom Out" class="text-2xl">-</button>
+                                <button id="undoBtn" title="Undo" disabled>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4c0 .55.45 1 1 1h3l7 7V3L7 10H4c-.55 0-1 .45-1 1Z"/></svg>
+                                </button>
+                                <button id="redoBtn" title="Redo" disabled>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 3 1 5"/><path d="m3 10 3-2 5 2.5V18l-5-2.5-3 2v-8Z"/><path d="M22 10v4c0 .55-.45 1-1 1h-3l-7 7V3l7 7h3c.55 0 1 .45 1 1Z"/></svg>
+                                </button>
+                                <button id="eraserBtn" title="Eraser">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="18" y1="9" x2='12' y2='15'></line><line x1='12' y1='9' x2='18' y2='15'></line></svg>
+                                </button>
+                                <button id="resetViewBtn" title="Reset View & Zoom">Center</button>
+                            </div>
                         </div>
                     </div>
                                     
-                    <div class="control-panel mb-6">
-                        <div id="aiToolsHeader" class="collapsible-header collapsed">
-                            <h3>✨ AI Tools</h3>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                        </div>
-                        <div id="aiToolsContent" class="collapsible-content hidden">
-                            <div class="mb-4">
-                                <h4 class="font-semibold text-gray-200 mb-2">AI World Forge</h4>
-                                <label for="aiForgePrompt">Describe the world to create:</label>
-                                <textarea id="aiForgePrompt" placeholder="e.g., A large continent with a central desert, surrounded by a ring of mountains." class="!h-28"></textarea>
-                                <button id="aiForgeBtn" data-original-text="Forge World with AI">Forge World with AI</button>
-                            </div>
-                            <div class="border-t border-gray-700 pt-4 mt-4">
-                                <h4 class="font-semibold text-gray-200 mb-2">Alter Map</h4>
-                                <label for="aiAlterPrompt">Describe the changes to make:</label>
-                                <textarea id="aiAlterPrompt" placeholder="e.g., Add a road from west to east."></textarea>
-                                <button id="aiAlterMapBtn" data-original-text="Alter Map">Alter Map</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="control-panel mb-6">
+                    <div class="control-panel mb-4">
                          <div id="terrainHeader" class="collapsible-header collapsed">
                             <h3>Terrain Type</h3>
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -395,7 +415,7 @@
                         </div>
                     </div>
 
-                    <div class="control-panel mb-6">
+                    <div class="control-panel mb-4">
                         <div id="objectHeader" class="collapsible-header collapsed">
                             <h3>Objects</h3>
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -405,7 +425,7 @@
                          </div>
                     </div>
 
-                    <div id="textToolPanel" class="control-panel mb-6">
+                    <div id="textToolPanel" class="control-panel mb-4">
                         <div id="textHeader" class="collapsible-header collapsed">
                             <h3>Text</h3>
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -458,14 +478,6 @@
                              </div>
                          </div>
                          
-                         <div class="control-panel mb-4">
-                            <h3 class="!border-b-0 !pb-2 text-base font-semibold">Brush Mode</h3>
-                            <div class="grid grid-cols-2 gap-2">
-                                <button id="brushModeFreeformBtn">Freeform</button>
-                                <button id="brushModeHexBtn">Hex</button>
-                            </div>
-                        </div>
-
                          <div class="control-panel">
                              <h3 class="!border-b-0 !pb-2 text-base font-semibold">Map Generation</h3>
                              <div id="mapGenerationContent" class="collapsible-content">
@@ -500,10 +512,23 @@
 
                      </div>
                 </div>
-
             </div>
         </div>
-        <div id="collapsedBar" class="collapsed-bar hidden">MAP OPTIONS</div>
+        <div id="canvas-container">
+            <canvas id="mapCanvas"></canvas>
+            <canvas id="drawingCanvas"></canvas>
+        </div>
+        <div id="collapsedBar" class="collapsed-bar hidden">MAP CONTROLS</div>
+        <div id="topRightControls">
+            <div>
+                <label for="mapNameInput">Map Name</label>
+                <input type="text" id="mapNameInput" placeholder="Untitled Map" class="text-lg w-48">
+            </div>
+            <div>
+                 <label for="mapScaleInput">Scale (m)</label>
+                 <input type="number" id="mapScaleInput" value="10" min="1" class="text-lg w-20">
+            </div>
+        </div>
     </div>
 
     <script type="module">
@@ -522,8 +547,9 @@
             let mapScale = 10;
             let layers = [];
             let activeLayerIndex = 0;
-            let currentTool = 'paint';
-            let brushMode = 'freeform'; // 'hex' or 'freeform'
+            let currentTool = 'terrain';
+            let terrainBrushMode = 'hex';
+            let pencilBrushMode = 'freestyle';
             let brushSize = 1;
             let selectedTerrain = 'grass';
             let selectedObjectKey = 'Fantasy.Outside.tree';
@@ -533,10 +559,10 @@
             let isPanning = false;
             let panStart = { x: 0, y: 0 };
             let isDrawingShape = false;
+            let shapeStartPoint = null;
+            let previewCanvas = document.createElement('canvas'); // Restored
+            let previewCtx = previewCanvas.getContext('2d'); // Restored
             let isPainting = false;
-            let shapeStartHex = null;
-            let previewCanvas = document.createElement('canvas');
-            let previewCtx = previewCanvas.getContext('2d');
             let pencilColor = '#FFFFFF';
             let pencilWidth = 5;
             let isPenciling = false;
@@ -584,45 +610,41 @@
             const saveJsonBtn = document.getElementById('saveJsonBtn');
             const loadJsonBtn = document.getElementById('loadJsonBtn');
             const loadJsonInput = document.getElementById('loadJsonInput');
-            const toolPaintBtn = document.getElementById('toolPaintBtn');
+            const toolTerrainBtn = document.getElementById('toolTerrainBtn');
             const toolPencilBtn = document.getElementById('toolPencilBtn');
-            const pencilToolPanel = document.getElementById('pencilToolPanel');
+            const terrainOptionsPanel = document.getElementById('terrainOptionsPanel');
+            const pencilOptionsPanel = document.getElementById('pencilOptionsPanel');
+            const terrainBrushModeSelect = document.getElementById('terrainBrushMode');
+            const pencilBrushModeSelect = document.getElementById('pencilBrushMode');
             const pencilColorPicker = document.getElementById('pencilColorPicker');
             const pencilWidthSlider = document.getElementById('pencilWidth');
             const pencilWidthValue = document.getElementById('pencilWidthValue');
-            const toolLineBtn = document.getElementById('toolLineBtn');
-            const toolRectBtn = document.getElementById('toolRectBtn');
-            const toolEllipseBtn = document.getElementById('toolEllipseBtn');
-            const aiForgeBtn = document.getElementById('aiForgeBtn');
-            const aiAlterMapBtn = document.getElementById('aiAlterMapBtn');
             const graphicsBtn = document.getElementById('graphicsBtn');
             const graphicsContent = document.getElementById('graphicsContent');
             const graphicsChevron = document.getElementById('graphicsChevron');
-            const controlContainer = document.getElementById('controlContainer');
+            const panelWrapper = document.getElementById('panelWrapper');
             const collapseBtn = document.getElementById('collapseBtn');
             const collapsedBar = document.getElementById('collapsedBar');
-            const brushModeFreeformBtn = document.getElementById('brushModeFreeformBtn');
-            const brushModeHexBtn = document.getElementById('brushModeHexBtn');
             
             // Accordion elements
             const accordionHeaders = document.querySelectorAll('.collapsible-header');
 
             // --- Data Definitions ---
             const terrains = {
-                water: { color: '#4c92c8', name: 'Water' },
-                sand: { color: '#f0d9a0', name: 'Sand' },
-                grass: { color: '#86c440', name: 'Grass' },
-                plains: { color: '#a6d15a', name: 'Plains'},
-                forest: { color: '#4a8232', name: 'Forest' },
-                hills: { color: '#a08b6b', name: 'Hills'},
-                mountain: {color: '#6f6f6f', name: 'Mountain'},
-                snow: { color: '#ffffff', name: 'Snow'},
-                dirt: { color: '#a07040', name: 'Dirt' },
-                road: { color: '#b0a89f', name: 'Road'},
-                lava: { color: '#e25822', name: 'Lava'},
-                crags: {color: '#5a5a5a', name: 'Crags'},
-                swamp: { color: '#4d6642', name: 'Swamp'},
-                tundra: { color: '#cdd3d6', name: 'Tundra' },
+                water: { color: '#4c92c8', name: 'Water', pattern: 'pattern-water' },
+                sand: { color: '#f0d9a0', name: 'Sand', pattern: 'pattern-sand' },
+                grass: { color: '#86c440', name: 'Grass', pattern: 'pattern-grass' },
+                plains: { color: '#a6d15a', name: 'Plains', pattern: 'pattern-plains' },
+                forest: { color: '#4a8232', name: 'Forest', pattern: 'pattern-forest' },
+                hills: { color: '#a08b6b', name: 'Hills', pattern: 'pattern-hills' },
+                mountain: { color: '#6f6f6f', name: 'Mountain', pattern: 'pattern-mountain' },
+                snow: { color: '#ffffff', name: 'Snow', pattern: 'pattern-snow' },
+                dirt: { color: '#a07040', name: 'Dirt', pattern: 'pattern-dirt' },
+                road: { color: '#b0a89f', name: 'Road', pattern: 'pattern-road' },
+                lava: { color: '#e25822', name: 'Lava', pattern: 'pattern-lava' },
+                crags: { color: '#5a5a5a', name: 'Crags', pattern: 'pattern-crags' },
+                swamp: { color: '#4d6642', name: 'Swamp', pattern: 'pattern-swamp' },
+                tundra: { color: '#cdd3d6', name: 'Tundra', pattern: 'pattern-tundra' },
             };
 
             const objectCategories = {
@@ -641,25 +663,37 @@
             };
 
             // --- Initialization ---
-            function initialize() {
-                resizeCanvas();
-                togglePanel(true);
-                generateBaseMap();
-                populateSelectors();
+            async function initialize() {
+                togglePanel(false); // Start with panel open
+                
+                // These don't depend on layout, so they can run first
                 addEventListeners();
                 gridColorPicker.value = gridColor;
                 gridVisibleCheckbox.checked = isGridVisible;
                 updateUndoRedoButtons();
-                updateBrushModeUI();
+                updateActiveSwatches();
+
+                // Defer layout-dependent operations until the next frame
+                requestAnimationFrame(async () => {
+                    resizeCanvas(); // 1. Get final canvas dimensions
+                    await initializePatterns(ctx); // 2. Create canvas patterns from SVGs
+                    populateSelectors(); // 3. Populate UI (swatches need patterns)
+                    generateBaseMap(); // 4. Generate map data
+                    centerView(); // 5. Center the view
+                });
             }
             
-            function togglePanel(isCollapsed) {
-                controlContainer.classList.toggle('open', !isCollapsed);
-                collapsedBar.classList.toggle('hidden', !isCollapsed);
+            function togglePanel(isCollapsing) {
+                panelWrapper.classList.toggle('closed', isCollapsing);
+                collapsedBar.classList.toggle('hidden', !isCollapsing);
+                // Trigger a resize after the transition to redraw canvas correctly
+                setTimeout(resizeCanvas, 300); 
             }
 
             function resizeCanvas() {
-                const { width, height } = canvas.parentElement.getBoundingClientRect();
+                const container = document.getElementById('canvas-container');
+                if (!container) return;
+                const { width, height } = container.getBoundingClientRect();
                 canvas.width = width;
                 canvas.height = height;
                 drawingCanvas.width = width;
@@ -675,15 +709,17 @@
                 const height = mapHeightInput.value;
                 const radius = mapRadiusInput.value;
                 mapGrid = generateBaseMapGrid(shape, width, height, radius);
-                layers = [{ name: 'Ground', visible: true, data: {} }, { name: 'Objects', visible: true, data: {} }];
+                // Start with empty layers
+                layers = [
+                    { name: 'Ground', visible: true, data: {} }, 
+                    { name: 'Objects', visible: true, data: {} }
+                ];
                 pencilPaths = [];
                 freeformPaths = [];
                 undoStack = [];
                 redoStack = [];
-                activeLayerIndex = 0;
+                activeLayerIndex = 0; // Default to ground layer
                 renderLayers();
-                drawAll();
-                centerView();
                 updateUndoRedoButtons();
             }
 
@@ -723,7 +759,7 @@
             }
 
             function centerView() {
-                if (Object.keys(mapGrid).length === 0) return;
+                if (Object.keys(mapGrid).length === 0 || canvas.width === 0) return;
 
                 const {mapPixelWidth, mapPixelHeight, mapCenterX, mapCenterY} = getMapPixelBounds();
 
@@ -759,14 +795,20 @@
                     targetCtx.scale(view.zoom, view.zoom);
                 }
 
+                // Get all terrains from all visible layers
                 const topTerrains = getTopTerrains();
+
+                // Draw terrain layer first
                 for (const key in mapGrid) {
                     const [q, r] = key.split(',').map(Number);
-                    const terrain = topTerrains[key] || 'water'; 
                     const {x, y} = hexToPixel(q, r);
-                    drawHex(targetCtx, x, y, terrains[terrain].color);
+                    const terrainKey = topTerrains[key];
+                    if (terrainKey) {
+                        drawHex(targetCtx, x, y, terrains[terrainKey]);
+                    }
                 }
                 
+                // Draw grid outlines on top of terrain
                 if (isGridVisible) {
                     for (const key in mapGrid) {
                         const [q, r] = key.split(',').map(Number);
@@ -775,6 +817,7 @@
                     }
                 }
 
+                // Draw objects and text from all layers on top of everything
                 layers.forEach(layer => {
                     if (!layer.visible) return;
                     for (const key in layer.data) {
@@ -800,14 +843,21 @@
                 }
             }
             
-            function drawHex(targetCtx, x, y, fillStyle) {
+            function drawHex(targetCtx, x, y, terrainOrColor) {
                 targetCtx.beginPath();
                 for (let i = 0; i < 6; i++) {
                     const corner = getHexCorner({x, y}, baseHexSize, i);
                     targetCtx.lineTo(corner.x, corner.y);
                 }
                 targetCtx.closePath();
-                targetCtx.fillStyle = fillStyle;
+                
+                if (typeof terrainOrColor === 'string') {
+                    targetCtx.fillStyle = terrainOrColor;
+                } else if (terrainOrColor && terrainOrColor.canvasPattern) {
+                    targetCtx.fillStyle = terrainOrColor.canvasPattern;
+                } else if (terrainOrColor && terrainOrColor.color) {
+                    targetCtx.fillStyle = terrainOrColor.color;
+                }
                 targetCtx.fill();
             }
 
@@ -884,27 +934,42 @@
                 }
 
                 allPaths.forEach(path => {
-                    if (path.points.length < 2) {
-                        if (path.points.length === 1) {
-                            drawingCtx.beginPath();
-                            drawingCtx.fillStyle = path.color;
-                            drawingCtx.arc(path.points[0].x, path.points[0].y, (path.width / 2), 0, Math.PI * 2);
-                            drawingCtx.fill();
+                     if (path.type === 'freestyle') {
+                        if (path.points.length < 2) return;
+                        drawingCtx.beginPath();
+                        drawingCtx.strokeStyle = path.color;
+                        drawingCtx.lineWidth = path.width / view.zoom;
+                        drawingCtx.lineCap = 'round';
+                        drawingCtx.lineJoin = 'round';
+                        drawingCtx.moveTo(path.points[0].x, path.points[0].y);
+                        for(let i=1; i < path.points.length; i++) {
+                            drawingCtx.lineTo(path.points[i].x, path.points[i].y);
                         }
-                        return;
-                    };
-                    drawingCtx.beginPath();
-                    drawingCtx.globalCompositeOperation = 'source-over'; // Ensure pencil draws normally
-                    drawingCtx.strokeStyle = path.color;
-                    drawingCtx.lineWidth = path.width / view.zoom;
-                    drawingCtx.lineCap = 'round';
-                    drawingCtx.lineJoin = 'round';
-                    
-                    drawingCtx.moveTo(path.points[0].x, path.points[0].y);
-                    for(let i=1; i < path.points.length; i++) {
-                        drawingCtx.lineTo(path.points[i].x, path.points[i].y);
+                        drawingCtx.stroke();
+                    } else if (path.type === 'line') {
+                        drawingCtx.beginPath();
+                        drawingCtx.strokeStyle = path.color;
+                        drawingCtx.lineWidth = path.width / view.zoom;
+                        drawingCtx.moveTo(path.start.x, path.start.y);
+                        drawingCtx.lineTo(path.end.x, path.end.y);
+                        drawingCtx.stroke();
+                    } else if (path.type === 'rectangle') {
+                        drawingCtx.beginPath();
+                        drawingCtx.strokeStyle = path.color;
+                        drawingCtx.lineWidth = path.width / view.zoom;
+                        drawingCtx.rect(path.start.x, path.start.y, path.end.x - path.start.x, path.end.y - path.start.y);
+                        drawingCtx.stroke();
+                    } else if (path.type === 'ellipse') {
+                        drawingCtx.beginPath();
+                        drawingCtx.strokeStyle = path.color;
+                        drawingCtx.lineWidth = path.width / view.zoom;
+                        const rx = Math.abs(path.end.x - path.start.x) / 2;
+                        const ry = Math.abs(path.end.y - path.start.y) / 2;
+                        const cx = path.start.x + (path.end.x - path.start.x) / 2;
+                        const cy = path.start.y + (path.end.y - path.start.y) / 2;
+                        drawingCtx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
+                        drawingCtx.stroke();
                     }
-                    drawingCtx.stroke();
                 });
                 drawingCtx.restore();
             }
@@ -978,7 +1043,7 @@
             }
 
             function getHexCorner(center, size, i) {
-                const angle_deg = 60 * i;
+                const angle_deg = 60 * i + 30; // Start angle at 30 degrees for pointy top
                 const angle_rad = Math.PI / 180 * angle_deg;
                 return {
                     x: center.x + size * Math.cos(angle_rad),
@@ -988,11 +1053,11 @@
 
             function getTopTerrains() {
                 const topTerrains = {};
-                for (let i = layers.length - 1; i >= 0; i--) {
+                for (let i = 0; i < layers.length; i++) { // Iterate from bottom to top
                     const layer = layers[i];
                     if (!layer.visible) continue;
                     for (const key in layer.data) {
-                        if (layer.data[key].terrain && !topTerrains[key]) {
+                        if (layer.data[key].terrain) { // If terrain exists, it overwrites lower layers
                             topTerrains[key] = layer.data[key].terrain;
                         }
                     }
@@ -1067,15 +1132,17 @@
                     if (mapGrid[key]) { // <-- BORDER CHECK
                         if (!activeLayer.data[key]) activeLayer.data[key] = {};
                         
-                        if (currentTool === 'paint' || currentTool === 'line' || currentTool === 'rectangle' || currentTool === 'ellipse') {
-                           activeLayer.data[key] = { terrain: selectedTerrain };
+                        if (currentTool === 'terrain') {
+                           // Preserve other data in the hex like objects/text
+                           activeLayer.data[key] = { ...activeLayer.data[key], terrain: selectedTerrain };
                         } else if (currentTool === 'place') {
                             if (hex.q === affectedHexes[0].q && hex.r === affectedHexes[0].r) {
-                                activeLayer.data[key] = { objectKey: selectedObjectKey, size: brushSize };
+                                activeLayer.data[key] = { ...activeLayer.data[key], objectKey: selectedObjectKey, size: brushSize };
                             }
                         } else if (currentTool === 'text') {
                              if (hex.q === affectedHexes[0].q && hex.r === affectedHexes[0].r) {
                                 activeLayer.data[key] = {
+                                    ...activeLayer.data[key],
                                     text: textInput.value,
                                     textSize: fontSizeInput.value,
                                     textColor: fontColorInput.value
@@ -1096,15 +1163,22 @@
                 const mouseX = e.clientX - rect.left;
                 const mouseY = e.clientY - rect.top;
                 const centerHex = endHex || pixelToHex(mouseX, mouseY);
+                const startHex = shapeStartPoint ? axialRound(shapeStartPoint.q, shapeStartPoint.r) : centerHex;
 
-                if (currentTool === 'paint' || currentTool === 'eraser' || currentTool === 'place') {
-                    return getHexesInBrush(centerHex);
-                } else if (currentTool === 'line') {
-                    return getHexesForLine(shapeStartHex, centerHex);
-                } else if (currentTool === 'rectangle') {
-                    return getHexesForRectangle(shapeStartHex, centerHex);
-                } else if (currentTool === 'ellipse') {
-                    return getHexesForEllipse(shapeStartHex, centerHex);
+                if (currentTool === 'terrain') {
+                    switch(terrainBrushMode) {
+                        case 'hex':
+                        case 'freestyle':
+                             return getHexesInBrush(centerHex);
+                        case 'line':
+                            return getHexesForLine(startHex, centerHex);
+                        case 'rectangle':
+                            return getHexesForRectangle(startHex, centerHex);
+                        case 'ellipse':
+                            return getHexesForEllipse(startHex, centerHex);
+                    }
+                } else if (currentTool === 'place' || currentTool === 'eraser') {
+                     return getHexesInBrush(centerHex);
                 } else if (currentTool === 'text') {
                     return [centerHex];
                 }
@@ -1424,38 +1498,19 @@
                     }
 
                     if (e.button === 0) { // Left-click for tools
-                        if (currentTool === 'paint' || currentTool === 'eraser') {
-                            isPainting = true;
-                            if (brushMode === 'freeform') {
-                                saveState();
-                                const worldPoint = pixelToHex(mouseX, mouseY, true);
-                                currentFreeformPath = {
-                                    tool: currentTool,
-                                    color: currentTool === 'eraser' ? 'black' : terrains[selectedTerrain].color,
-                                    width: brushSize * 10,
-                                    points: [worldPoint]
-                                };
-                            } else { // hex mode
-                                applyTool(e);
-                            }
+                        const brushMode = currentTool === 'terrain' ? terrainBrushMode : pencilBrushMode;
+                        const isShapeMode = ['line', 'rectangle', 'ellipse'].includes(brushMode);
+
+                        if (isShapeMode) {
+                            isDrawingShape = true;
+                            shapeStartPoint = pixelToHex(mouseX, mouseY, true);
+                        } else if (currentTool === 'terrain') {
+                             isPainting = true;
+                             applyTool(e);
                         } else if (currentTool === 'pencil') {
-                            const startHex = pixelToHex(mouseX, mouseY);
-                            if(mapGrid[`${startHex.q},${startHex.r}`]) {
-                                saveState();
-                                isPenciling = true;
-                                currentPencilPath = { color: pencilColor, width: pencilWidth, points: [] };
-                                const worldPoint = pixelToHex(mouseX, mouseY, true);
-                                currentPencilPath.points.push(worldPoint);
-                                drawAll();
-                            }
-                        } else { // Other hex-based tools
-                            const isShapeTool = ['line', 'rectangle', 'ellipse'].includes(currentTool);
-                            if (isShapeTool) {
-                                isDrawingShape = true;
-                                shapeStartHex = pixelToHex(mouseX, mouseY);
-                            } else {
-                                applyTool(e);
-                            }
+                            isPenciling = true;
+                            saveState();
+                            currentPencilPath = { type: 'freestyle', color: pencilColor, width: pencilWidth, points: [pixelToHex(mouseX, mouseY, true)] };
                         }
                     }
                 });
@@ -1473,69 +1528,83 @@
                     const mouseX = e.clientX - rect.left;
                     const mouseY = e.clientY - rect.top;
 
-                    if (isPainting) {
-                        if (brushMode === 'freeform') {
-                            if (currentFreeformPath) {
-                                const worldPoint = pixelToHex(mouseX, mouseY, true);
-                                currentFreeformPath.points.push(worldPoint);
-                                drawAll();
-                            }
-                        } else {
-                            applyTool(e);
-                        }
-                    } else if (isPenciling && currentPencilPath) {
-                        const currentHex = pixelToHex(mouseX, mouseY);
-                         if(mapGrid[`${currentHex.q},${currentHex.r}`]) {
-                            const worldPoint = pixelToHex(mouseX, mouseY, true);
-                            currentPencilPath.points.push(worldPoint);
-                            drawAll();
-                         }
-                    } else if (isDrawingShape) {
-                        previewCtx.clearRect(0,0, previewCanvas.width, previewCanvas.height);
-                        const currentHex = pixelToHex(mouseX, mouseY);
-                        const shapeHexes = getHexesForTool(e, currentHex);
-
+                    if (isDrawingShape) {
+                        previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+                        const endPoint = pixelToHex(mouseX, mouseY, true);
+                        const startPoint = shapeStartPoint;
+                        
                         previewCtx.save();
                         previewCtx.translate(view.offsetX, view.offsetY);
                         previewCtx.scale(view.zoom, view.zoom);
-                        shapeHexes.forEach(hex => {
-                            const {x, y} = hexToPixel(hex.q, hex.r);
-                            drawHex(previewCtx, x, y, 'rgba(100, 150, 255, 0.5)');
-                        });
+                        
+                        if (currentTool === 'terrain') {
+                            const startHex = axialRound(startPoint.q, startPoint.r);
+                            const endHex = pixelToHex(mouseX, mouseY);
+                            const shapeHexes = getHexesForTool(e, endHex);
+                            shapeHexes.forEach(hex => {
+                                const {x, y} = hexToPixel(hex.q, hex.r);
+                                drawHex(previewCtx, x, y, 'rgba(100, 150, 255, 0.5)');
+                            });
+                        } else if (currentTool === 'pencil') {
+                            previewCtx.beginPath();
+                            previewCtx.strokeStyle = pencilColor;
+                            previewCtx.lineWidth = pencilWidth / view.zoom;
+                            const brushMode = pencilBrushMode;
+                            if (brushMode === 'line') {
+                                previewCtx.moveTo(startPoint.x, startPoint.y);
+                                previewCtx.lineTo(endPoint.x, endPoint.y);
+                            } else if (brushMode === 'rectangle') {
+                                previewCtx.rect(startPoint.x, startPoint.y, endPoint.x - startPoint.x, endPoint.y - startPoint.y);
+                            } else if (brushMode === 'ellipse') {
+                                const rx = Math.abs(endPoint.x - startPoint.x) / 2;
+                                const ry = Math.abs(endPoint.y - startPoint.y) / 2;
+                                const cx = startPoint.x + (endPoint.x - startPoint.x) / 2;
+                                const cy = startPoint.y + (endPoint.y - startPoint.y) / 2;
+                                previewCtx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
+                            }
+                            previewCtx.stroke();
+                        }
+                        
                         previewCtx.restore();
+                        drawAll();
+                    } else if (isPainting) { // Terrain freestyle/hex
+                        applyTool(e);
+                    } else if (isPenciling) { // Pencil freestyle
+                        currentPencilPath.points.push(pixelToHex(mouseX, mouseY, true));
                         drawAll();
                     }
                 });
                 
                 canvas.addEventListener('mouseup', e => {
                     if (e.button === 0) { // Left-click release
-                        if (isPainting) {
-                            if (brushMode === 'freeform' && currentFreeformPath) {
-                                if (currentFreeformPath.points.length > 0) {
-                                    freeformPaths.push(currentFreeformPath);
-                                }
-                                currentFreeformPath = null;
+                        const brushMode = currentTool === 'terrain' ? terrainBrushMode : pencilBrushMode;
+                        const isShapeMode = ['line', 'rectangle', 'ellipse'].includes(brushMode);
+
+                        if (isDrawingShape && isShapeMode) {
+                            const endPoint = pixelToHex(e.clientX - canvas.getBoundingClientRect().left, e.clientY - canvas.getBoundingClientRect().top, true);
+                            if (currentTool === 'terrain') {
+                                applyTool(e, pixelToHex(e.clientX - canvas.getBoundingClientRect().left, e.clientY - canvas.getBoundingClientRect().top));
+                            } else if (currentTool === 'pencil') {
+                                saveState();
+                                pencilPaths.push({
+                                    type: pencilBrushMode,
+                                    start: shapeStartPoint,
+                                    end: endPoint,
+                                    color: pencilColor,
+                                    width: pencilWidth
+                                });
                             }
-                            isPainting = false;
                         }
+                        
+                        isDrawingShape = false;
+                        shapeStartPoint = null;
+                        isPainting = false;
                         if (isPenciling) {
-                            if (currentPencilPath && currentPencilPath.points.length > 0) {
-                                pencilPaths.push(currentPencilPath);
-                            }
                             isPenciling = false;
+                            pencilPaths.push(currentPencilPath);
                             currentPencilPath = null;
-                        } 
-                        if (isDrawingShape) {
-                            const rect = canvas.getBoundingClientRect();
-                            const mouseX = e.clientX - rect.left;
-                            const mouseY = e.clientY - rect.top;
-                            const endHex = pixelToHex(mouseX, mouseY);
-                            applyTool(e, endHex);
-                            isDrawingShape = false;
-                            shapeStartHex = null;
-                            previewCtx.clearRect(0,0, previewCanvas.width, previewCanvas.height);
-                            drawAll();
                         }
+                        drawAll();
                     }
                     
                     if (e.button === 2) { // Right-click release
@@ -1546,21 +1615,13 @@
                 
                 canvas.addEventListener('mouseleave', () => {
                      if (isPenciling) {
-                         if(currentPencilPath && currentPencilPath.points.length > 0) {
+                         if(currentPencilPath && currentPencilPath.points.length > 1) {
                             pencilPaths.push(currentPencilPath);
                          }
                          isPenciling = false;
                          currentPencilPath = null;
                      }
-                     if (isPainting) {
-                        if (brushMode === 'freeform' && currentFreeformPath) {
-                            if (currentFreeformPath.points.length > 0) {
-                                freeformPaths.push(currentFreeformPath);
-                            }
-                            currentFreeformPath = null;
-                        }
-                        isPainting = false;
-                     }
+                     isPainting = false;
                     isPanning = false;
                     isDrawingShape = false;
                     canvas.classList.remove('panning');
@@ -1612,12 +1673,11 @@
                 });
 
 
-                eraserBtn.addEventListener('click', () => { currentTool = 'eraser'; updateActiveSwatches(); });
-                toolPaintBtn.addEventListener('click', () => { currentTool = 'paint'; updateActiveSwatches(); });
-                toolLineBtn.addEventListener('click', () => { currentTool = 'line'; updateActiveSwatches(); });
-                toolRectBtn.addEventListener('click', () => { currentTool = 'rectangle'; updateActiveSwatches(); });
-                toolEllipseBtn.addEventListener('click', () => { currentTool = 'ellipse'; updateActiveSwatches(); });
+                toolTerrainBtn.addEventListener('click', () => { currentTool = 'terrain'; updateActiveSwatches(); });
                 toolPencilBtn.addEventListener('click', () => { currentTool = 'pencil'; updateActiveSwatches(); });
+                terrainBrushModeSelect.addEventListener('change', (e) => { terrainBrushMode = e.target.value; });
+                pencilBrushModeSelect.addEventListener('change', (e) => { pencilBrushMode = e.target.value; });
+
                 
                 pencilColorPicker.addEventListener('input', e => { pencilColor = e.target.value; });
                 pencilWidthSlider.addEventListener('input', e => {
@@ -1651,9 +1711,6 @@
                     fileDropdownMenu.classList.toggle('hidden');
                 });
                 window.addEventListener('click', (e) => { 
-                    if (!controlContainer.contains(e.target) && !collapsedBar.contains(e.target) && controlContainer.classList.contains('open')) {
-                        togglePanel(true);
-                    }
                     if (!fileMenuBtn.contains(e.target) && !fileDropdownMenu.contains(e.target)) {
                        fileDropdownMenu.classList.add('hidden');
                     }
@@ -1662,7 +1719,6 @@
                         graphicsChevron.classList.remove('rotate-180');
                     }
                 });
-                 controlContainer.addEventListener('click', e => e.stopPropagation());
 
 
                 savePngBtn.addEventListener('click', saveAsPNG);
@@ -1670,204 +1726,93 @@
                 loadJsonBtn.addEventListener('click', () => loadJsonInput.click());
                 loadJsonInput.addEventListener('change', loadFromJSON);
                 
-                brushModeFreeformBtn.addEventListener('click', () => { brushMode = 'freeform'; updateBrushModeUI(); });
-                brushModeHexBtn.addEventListener('click', () => { brushMode = 'hex'; updateBrushModeUI(); });
-
                 accordionHeaders.forEach((header) => {
                     header.addEventListener('click', () => {
                         const content = header.nextElementSibling;
-                        const isCurrentlyOpen = !content.classList.contains('hidden');
-                        
-                        accordionHeaders.forEach(h => h.nextElementSibling.classList.add('hidden'));
-                        accordionHeaders.forEach(h => h.classList.add('collapsed'));
-
-                        if(!isCurrentlyOpen) {
-                            content.classList.remove('hidden');
-                            header.classList.remove('collapsed');
-                        }
+                        content.classList.toggle('hidden');
+                        header.classList.toggle('collapsed');
                     });
                 });
 
                 collapseBtn.addEventListener('click', () => togglePanel(true));
                 collapsedBar.addEventListener('click', () => togglePanel(false));
-
-                // Gemini API listeners
-                aiForgeBtn.addEventListener('click', handleAiFullMapGeneration);
-                aiAlterMapBtn.addEventListener('click', handleAiMapAlteration);
             }
-
-            // --- Gemini API Functions ---
-            async function handleAiFullMapGeneration() {
-                const userPrompt = document.getElementById('aiForgePrompt').value;
-                if (!userPrompt) {
-                    showModal("Please describe the world you want to create in the AI World Forge.");
-                    return;
-                }
-                
-                showModal("Forge a new world with AI? This will delete all layers and current work.", async () => {
-                    setButtonLoading(aiForgeBtn, true);
-
-                    const allHexes = Object.keys(mapGrid);
-                    const terrainList = Object.keys(terrains).join(', ');
-                    
-                    const fullPrompt = `You are an expert fantasy cartographer. Your task is to design a complete hex map based on a user's high-level description.
-                    User's Vision: "${userPrompt}"
-                    
-                    The map is a grid of axial hex coordinates. You must return a terrain type for every single hex coordinate provided.
-                    The available terrains are: ${terrainList}.
-                    
-                    Follow these cartographic principles:
-                    1.  **Geography:** Create believable landmasses, coastlines, mountains, and biomes. Mountains often form in ranges. Deserts can form in the center of large continents or in the rain shadow of mountains.
-                    2.  **Ecology:** Place terrains logically. For example, 'sand' should be along coasts, 'plains' or 'grass' next to that, then 'forest' and 'hills', and finally 'mountain' and 'snow' at the highest elevations.
-                    3.  **Completeness:** You must provide a valid terrain type for every hex coordinate in the list I provide.
-                    
-                    Here is the complete list of hex coordinates for the map in "q,r" format: ${allHexes.join('; ')}.
-                    
-                    Your response must be a single valid JSON array of objects, where each object has "q", "r", and "terrain" keys. For example: [{"q":0,"r":0,"terrain":"grass"},{"q":0,"r":1,"terrain":"water"}, ...].
-                    Do not include any text, markdown, or explanation outside of the JSON array itself.`;
-                    
-                    const payload = { contents: [{ role: "user", parts: [{ text: fullPrompt }] }] };
-                    // API Key is intentionally left blank for security.
-                    const apiKey = ""; 
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-                    try {
-                        const response = await fetch(apiUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-
-                        if (!response.ok) {
-                            throw new Error(`API request failed with status ${response.status}`);
-                        }
-
-                        const result = await response.json();
-                        if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
-                            const rawText = result.candidates[0].content.parts[0].text;
-                            const cleanedText = rawText.replace(/```json|```/g, '').trim();
-                            const newTerrains = JSON.parse(cleanedText);
-
-                            const groundLayer = { name: 'Ground', visible: true, data: {} };
-                            newTerrains.forEach(item => {
-                                const key = `${item.q},${item.r}`;
-                                if (mapGrid[key] && terrains[item.terrain]) {
-                                    groundLayer.data[key] = { terrain: item.terrain };
-                                }
-                            });
-                            layers = [groundLayer, { name: 'Objects', visible: true, data: {} }];
-                            activeLayerIndex = 0;
-                            renderLayers();
-                            drawAll();
-
-                        } else {
-                            throw new Error("Invalid response structure from API.");
-                        }
-                    } catch (error) {
-                        console.error("AI World Forge Error:", error);
-                        let modalMessage = "Sorry, there was an error forging the world. The AI may have provided an invalid layout. Please try a different prompt.";
-                        if (error.message.includes('401')) {
-                           modalMessage = "AI Forge failed due to an authentication error (401). This may be an issue with the API key configuration in this environment.";
-                        }
-                        showModal(modalMessage);
-                    } finally {
-                        setButtonLoading(aiForgeBtn, false);
-                    }
-                });
-            }
-
-
-            async function handleAiMapAlteration() {
-                const promptText = document.getElementById('aiAlterPrompt').value;
-                if (!promptText) {
-                    showModal("Please describe the changes you want to make.");
-                    return;
-                }
-                
-                setButtonLoading(aiAlterMapBtn, true);
-
-                const groundLayer = layers.find(l => l.name === 'Ground') || layers[0];
-                
-                let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
-                Object.keys(mapGrid).forEach(key => {
-                    const [q, r] = key.split(',').map(Number);
-                    minQ = Math.min(minQ, q);
-                    maxQ = Math.max(maxQ, q);
-                    minR = Math.min(minR, r);
-                    maxR = Math.max(maxR, r);
-                });
-
-                const terrainList = Object.keys(terrains).join(', ');
-                const fullPrompt = `You are an expert cartographer. Your task is to modify a hex grid map based on a user's request, following logical geographic principles.
-                User Request: "${promptText}".
-                Map Boundaries: q is from ${minQ} to ${maxQ}, and r is from ${minR} to ${maxR}.
-                Available Terrains: ${terrainList}.
-                Return a JSON array of objects with "q", "r", and "terrain" keys representing *only the hexes that need to change*.
-                For example, if the user asks for "a river from north to south", you should identify a path of hexes and return them with the "water" terrain type.
-                Your response must be a valid JSON array of objects.`;
-                
-                const payload = {
-                    contents: [{ role: "user", parts: [{ text: fullPrompt }] }]
-                };
-                
-                const apiKey = ""; // Intentionally left blank for security
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-                try {
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!response.ok) {
-                        const errorBody = await response.text();
-                        console.error("API Error Body:", errorBody);
-                        throw new Error(`API request failed with status ${response.status}`);
-                    }
-
-                    const result = await response.json();
-                    if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
-                        const rawText = result.candidates[0].content.parts[0].text;
-                        const cleanedText = rawText.replace(/```json|```/g, '').trim();
-                        const changes = JSON.parse(cleanedText);
-
-                        changes.forEach(item => {
-                            const key = `${item.q},${item.r}`;
-                            if(mapGrid[key] && terrains[item.terrain]) { // Validate data from AI
-                                if (!groundLayer.data[key]) groundLayer.data[key] = {};
-                                groundLayer.data[key].terrain = item.terrain;
-                            }
-                        });
-                        drawAll();
-                    } else {
-                        throw new Error("Invalid response structure from API.");
-                    }
-                } catch (error) {
-                    console.error("AI Map Alteration Error:", error);
-                    let modalMessage = "Sorry, there was an error altering the map. Please try a different prompt.";
-                    if (error.message.includes('401')) {
-                        modalMessage = "AI Alteration failed due to an authentication error (401). This may be an issue with the API key configuration in this environment.";
-                    }
-                    showModal(modalMessage);
-                } finally {
-                    setButtonLoading(aiAlterMapBtn, false);
-                }
-            }
-
 
             // --- UI Population & Updates ---
+            async function initializePatterns(targetCtx) {
+                const promises = Object.values(terrains).map(terrain => {
+                    return new Promise((resolve, reject) => {
+                        const patternEl = document.getElementById(terrain.pattern);
+                        if (!patternEl) {
+                            console.warn(`Pattern element not found: ${terrain.pattern}`);
+                            return resolve();
+                        }
+
+                        const img = new Image();
+                        img.onload = () => {
+                            try {
+                                terrain.canvasPattern = targetCtx.createPattern(img, 'repeat');
+                                resolve();
+                            } catch (e) {
+                                console.error(`Error creating pattern for ${terrain.name}:`, e);
+                                reject(e);
+                            }
+                        };
+                        img.onerror = (err) => {
+                            console.error(`Failed to load pattern image for ${terrain.name}`, err);
+                            reject(err);
+                        };
+                        img.src = getPatternDataUri(terrain.pattern);
+                    });
+                });
+                await Promise.all(promises);
+            }
+
+            function getPatternDataUri(patternId) {
+                const pattern = document.getElementById(patternId);
+                if (!pattern) return '';
+
+                const width = pattern.getAttribute('width');
+                const height = pattern.getAttribute('height');
+
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('width', width);
+                svg.setAttribute('height', height);
+                
+                const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                defs.appendChild(pattern.cloneNode(true));
+                svg.appendChild(defs);
+
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('width', '100%');
+                rect.setAttribute('height', '100%');
+                rect.setAttribute('fill', `url(#${patternId})`);
+                svg.appendChild(rect);
+
+                const xml = new XMLSerializer().serializeToString(svg);
+                return `data:image/svg+xml;base64,${btoa(xml)}`;
+            }
+
+
             function populateSelectors() {
                 terrainSelector.innerHTML = '';
                 Object.keys(terrains).forEach(key => {
+                    const terrain = terrains[key];
                     const itemContainer = document.createElement('div');
                     itemContainer.className = 'item-container';
                     itemContainer.dataset.terrain = key;
-                    itemContainer.addEventListener('click', () => { currentTool = 'paint'; selectedTerrain = key; updateActiveSwatches(); });
-                    itemContainer.innerHTML = `
-                        <div class="texture-swatch" style="background-color: ${terrains[key].color};"></div>
-                        <div class="item-label">${terrains[key].name}</div>
-                    `;
+                    itemContainer.addEventListener('click', () => { currentTool = 'terrain'; selectedTerrain = key; updateActiveSwatches(); });
+                    
+                    const swatch = document.createElement('div');
+                    swatch.className = 'texture-swatch';
+                    swatch.style.backgroundImage = `url(${getPatternDataUri(terrain.pattern)})`;
+                    
+                    const label = document.createElement('div');
+                    label.className = 'item-label';
+                    label.textContent = terrain.name;
+
+                    itemContainer.appendChild(swatch);
+                    itemContainer.appendChild(label);
                     terrainSelector.appendChild(itemContainer);
                 });
 
@@ -1882,7 +1827,7 @@
                             const itemContainer = document.createElement('div');
                             itemContainer.className = 'item-container';
                             itemContainer.dataset.objectKey = fullKey;
-                            itemContainer.addEventListener('click', () => { currentTool = 'place'; selectedObjectKey = fullKey; updateActiveSwatches(); });
+                            itemContainer.addEventListener('click', () => { currentTool = 'place'; updateActiveSwatches(); });
                             itemContainer.innerHTML = `
                                  <div class="object-swatch">${item.symbol}</div>
                                  <div class="item-label">${item.name}</div>
@@ -1895,70 +1840,24 @@
                 updateActiveSwatches();
             }
 
-            function updateBrushModeUI() {
-                if (brushMode === 'freeform') {
-                    brushModeFreeformBtn.classList.add('active');
-                    brushModeHexBtn.classList.remove('active');
-                } else {
-                    brushModeHexBtn.classList.add('active');
-                    brushModeFreeformBtn.classList.remove('active');
-                }
-            }
-
             function updateActiveSwatches() {
-                document.querySelectorAll('.control-panel.active, button.active, .item-container.active').forEach(el => el.classList.remove('active'));
+                toolTerrainBtn.classList.remove('active');
+                toolPencilBtn.classList.remove('active');
+                terrainOptionsPanel.classList.add('hidden');
+                pencilOptionsPanel.classList.add('hidden');
                 canvas.classList.remove('pencil');
-                if (textToolPanel) textToolPanel.classList.remove('active');
-                if (pencilToolPanel) pencilToolPanel.classList.add('hidden');
-                
-                drawingCanvas.style.pointerEvents = 'none';
 
-                const toolButtons = {
-                    paint: toolPaintBtn,
-                    pencil: toolPencilBtn,
-                    line: toolLineBtn,
-                    rectangle: toolRectBtn,
-                    ellipse: toolEllipseBtn,
-                    eraser: eraserBtn
-                };
-
-                if(toolButtons[currentTool]) {
-                    toolButtons[currentTool].classList.add('active');
-                }
-
-                if(currentTool === 'pencil') {
-                    pencilToolPanel.classList.remove('hidden');
+                if (currentTool === 'terrain') {
+                    toolTerrainBtn.classList.add('active');
+                    terrainOptionsPanel.classList.remove('hidden');
+                } else if (currentTool === 'pencil') {
+                    toolPencilBtn.classList.add('active');
+                    pencilOptionsPanel.classList.remove('hidden');
                     canvas.classList.add('pencil');
-                }
-
-                if (currentTool === 'place') document.querySelector(`.item-container[data-object-key="${selectedObjectKey}"]`)?.classList.add('active');
-                else if (currentTool === 'text') textToolPanel.classList.add('active');
-                
-                if(['paint', 'line', 'rectangle', 'ellipse'].includes(currentTool)) {
-                    document.querySelector(`.item-container[data-terrain="${selectedTerrain}"]`)?.classList.add('active');
-                }
-                
-                const isFreeformCompatible = ['paint', 'eraser'].includes(currentTool);
-                brushModeFreeformBtn.disabled = !isFreeformCompatible;
-                brushModeHexBtn.disabled = !isFreeformCompatible;
-
-                if (!isFreeformCompatible && brushMode !== 'hex') {
-                    brushMode = 'hex';
-                    updateBrushModeUI();
                 }
             }
 
             // --- Modals and Loaders ---
-            function setButtonLoading(button, isLoading) {
-                if(isLoading) {
-                    button.disabled = true;
-                    button.innerHTML = '<div class="spinner"></div>';
-                } else {
-                    button.disabled = false;
-                    button.innerHTML = button.dataset.originalText || '';
-                }
-            }
-
             function showModal(message, onConfirm) {
                 const existingModal = document.querySelector('.modal-backdrop');
                 if(existingModal) existingModal.remove();
