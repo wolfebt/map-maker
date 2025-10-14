@@ -57,12 +57,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const mapKeyHeader = document.getElementById('mapKeyHeader');
     const mapKeyContent = document.getElementById('mapKeyContent');
     const mapKeyCloseBtn = document.getElementById('mapKeyCloseBtn');
-
+    
     // --- Configuration ---
-    const baseHexSize = 30;
-
+    const baseHexSize = 30; 
+    
     // --- State ---
-    let mapGrid = {};
+    let mapGrid = {}; 
     let mapName = 'Untitled Map';
     let layers = [];
     let activeLayerIndex = 0;
@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
         panelWrapper.classList.toggle('closed', isCollapsing);
         collapsedBar.classList.toggle('hidden', !isCollapsing);
         // Trigger a resize after the transition to redraw canvas correctly
-        setTimeout(resizeCanvas, 300);
+        setTimeout(resizeCanvas, 300); 
     }
 
     function resizeCanvas() {
@@ -150,14 +150,14 @@ document.addEventListener('DOMContentLoaded', () => {
         previewCanvas.height = height;
         drawAll();
     }
-
+    
     function generateBaseMap() {
         const width = mapWidthInput.value;
         const height = mapHeightInput.value;
         mapGrid = generateBaseMapGrid(width, height);
-
+        
         layers = [
-            { name: 'Ground', visible: true, data: {} },
+            { name: 'Ground', visible: true, data: {} }, 
             { name: 'Grid', visible: true, type: 'grid' },
             { name: 'Objects', visible: true, data: {} }
         ];
@@ -221,10 +221,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function drawFrame(targetCtx, bounds = null) {
         targetCtx.save();
 
-        if (bounds) {
+        if (bounds) { 
             targetCtx.clearRect(0, 0, bounds.width, bounds.height);
             targetCtx.translate(-bounds.minPxX, -bounds.minPxY);
-        } else {
+        } else { 
             targetCtx.translate(view.offsetX, view.offsetY);
             targetCtx.scale(view.zoom, view.zoom);
         }
@@ -239,7 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 drawHex(targetCtx, x, y, terrains[terrainKey]);
             }
         }
-
+        
         layers.forEach(layer => {
             if (!layer.visible) return;
 
@@ -263,14 +263,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
-
+        
         targetCtx.restore();
 
         if(isDrawingShape && targetCtx === ctx) {
             ctx.drawImage(previewCanvas, 0, 0);
         }
     }
-
+    
     function drawHex(targetCtx, x, y, terrainOrColor) {
         targetCtx.beginPath();
         for (let i = 0; i < 6; i++) {
@@ -278,7 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
             targetCtx.lineTo(corner.x, corner.y);
         }
         targetCtx.closePath();
-
+        
         if (typeof terrainOrColor === 'string') {
             targetCtx.fillStyle = terrainOrColor;
                 } else if (terrainOrColor && terrainOrColor.isCustom) {
@@ -299,7 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         targetCtx.closePath();
         targetCtx.strokeStyle = strokeStyle;
-        targetCtx.lineWidth = 1.5 / (targetCtx === ctx ? view.zoom : 1);
+        targetCtx.lineWidth = 1.5 / (targetCtx === ctx ? view.zoom : 1); 
         targetCtx.stroke();
     }
 
@@ -317,12 +317,12 @@ document.addEventListener('DOMContentLoaded', () => {
         targetCtx.textBaseline = 'middle';
         targetCtx.fillText(text, x, y);
     }
-
+    
     function drawFreestyleTerrainPaths() {
         drawingCtx.save();
         drawingCtx.translate(view.offsetX, view.offsetY);
         drawingCtx.scale(view.zoom, view.zoom);
-
+        
         const allPaths = [...freestyleTerrainPaths];
         if(isPainting && currentFreestyleTerrainPath) {
             allPaths.push(currentFreestyleTerrainPath);
@@ -337,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
             drawingCtx.lineWidth = path.width;
             drawingCtx.lineCap = 'round';
             drawingCtx.lineJoin = 'round';
-
+            
             if (path.points.length < 2) {
                 drawingCtx.fillStyle = terrain.canvasPattern;
                 drawingCtx.beginPath();
@@ -359,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
         drawingCtx.save();
         drawingCtx.translate(view.offsetX, view.offsetY);
         drawingCtx.scale(view.zoom, view.zoom);
-
+        
         const allPaths = [...pencilPaths];
         if(isPenciling && currentPencilPath) {
             allPaths.push(currentPencilPath);
@@ -446,7 +446,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const r_frac = (2 / 3 * worldY) / baseHexSize;
         return axialRound(q_frac, r_frac);
     }
-
+    
     function axialRound(q_frac, r_frac) {
         const s_frac = -q_frac - r_frac;
         let q = Math.round(q_frac);
@@ -459,7 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
             q = -r - s;
         } else if (r_diff > s_diff) {
             r = -q - s;
-        }
+        } 
         return { q, r };
     }
 
@@ -504,7 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
             freestyleTerrainPaths: JSON.parse(JSON.stringify(freestyleTerrainPaths)),
         };
         redoStack.push(currentState);
-
+        
         const previousState = undoStack.pop();
         layers = previousState.layers;
         pencilPaths = previousState.pencilPaths;
@@ -529,7 +529,7 @@ document.addEventListener('DOMContentLoaded', () => {
         layers = nextState.layers;
         pencilPaths = nextState.pencilPaths;
         freestyleTerrainPaths = nextState.freestyleTerrainPaths;
-
+        
         drawAll();
         renderLayers();
         updateUndoRedoButtons();
@@ -556,7 +556,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const key = `${hex.q},${hex.r}`;
             if (mapGrid[key]) {
                 if (!activeLayer.data[key]) activeLayer.data[key] = {};
-
+                
                 if (toolToUse === 'terrain') {
                    activeLayer.data[key] = { ...activeLayer.data[key], terrain: selectedTerrain };
                 } else if (toolToUse === 'placeObject') {
@@ -578,7 +578,7 @@ document.addEventListener('DOMContentLoaded', () => {
         drawAll();
         updateMapKey();
     }
-
+    
     function getHexesForTool(e, endHex, toolOverride = null) {
         const toolToUse = toolOverride || currentTool;
         const rect = canvas.getBoundingClientRect();
@@ -593,9 +593,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 {
                     const results = [];
                     const allHexesInBrush = getHexesInBrush(centerHex);
-                    const density = Math.min(1, 0.1 + (brushSize / 10));
+                    const density = Math.min(1, 0.1 + (brushSize / 10)); 
                     const numToPick = Math.max(1, Math.floor(allHexesInBrush.length * density));
-
+                    
                     for (let i = 0; i < numToPick; i++) {
                         const randomIndex = Math.floor(Math.random() * allHexesInBrush.length);
                         results.push(allHexesInBrush[randomIndex]);
@@ -619,7 +619,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return [];
     }
-
+    
     function getHexesInBrush(centerHex) {
         const results = [];
         const range = brushSize - 1;
@@ -645,7 +645,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return results;
     }
-
+    
     function getHexesForRectangle(start, end) {
         if(!start || !end) return [];
         const results = [];
@@ -674,7 +674,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const q_max = Math.ceil(centerQ + radiusQ);
         const r_min = Math.floor(centerR - radiusR);
         const r_max = Math.ceil(centerR + radiusR);
-
+        
         for (let q = q_min; q <= q_max; q++) {
             for (let r = r_min; r <= r_max; r++) {
                 if (radiusQ === 0 || radiusR === 0) continue;
@@ -687,7 +687,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return results;
     }
-
+    
     function axialDistance(hexA, hexB) {
         return (Math.abs(hexA.q - hexB.q) + Math.abs(hexA.q + hexA.r - hexB.q - hexB.r) + Math.abs(hexA.r - hexB.r)) / 2;
     }
@@ -699,33 +699,33 @@ document.addEventListener('DOMContentLoaded', () => {
             item.className = 'layer-item';
             item.classList.toggle('active', index === activeLayerIndex);
             item.dataset.index = index;
-
+            
             const label = document.createElement('div');
             label.className = 'layer-label';
             label.textContent = layer.name;
-
+            
             const controls = document.createElement('div');
             controls.className = 'layer-controls';
-
+            
             const visBtn = document.createElement('button');
-            visBtn.innerHTML = layer.visible
+            visBtn.innerHTML = layer.visible 
                 ? `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`
                 : `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
             visBtn.title = "Toggle Visibility";
             visBtn.onclick = (e) => { e.stopPropagation(); toggleLayerVisibility(index); };
-
+            
             const upBtn = document.createElement('button');
             upBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>`;
             upBtn.title = "Move Up";
             upBtn.onclick = (e) => { e.stopPropagation(); moveLayer(index, -1); };
-
+            
             const downBtn = document.createElement('button');
             downBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
             downBtn.title = "Move Down";
             downBtn.onclick = (e) => { e.stopPropagation(); moveLayer(index, 1); };
-
+            
             item.onclick = () => { activeLayerIndex = index; renderLayers(); };
-
+            
             controls.appendChild(visBtn);
             controls.appendChild(upBtn);
             controls.appendChild(downBtn);
@@ -782,14 +782,14 @@ document.addEventListener('DOMContentLoaded', () => {
         drawAll();
         updateMapKey();
     }
-
+    
     function getSafeFilename(name) {
         return name.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'untitled-map';
     }
 
     function saveAsPNGLogic() {
         const { mapPixelWidth, mapPixelHeight, minPxX, minPxY } = getMapPixelBounds();
-
+        
         if (mapPixelWidth <= 0 || mapPixelHeight <= 0) {
             showModal("Cannot save an empty map.");
             return;
@@ -804,9 +804,9 @@ document.addEventListener('DOMContentLoaded', () => {
         offscreenCtx.fillRect(0, 0, mapPixelWidth, mapPixelHeight);
 
         const bounds = { width: mapPixelWidth, height: mapPixelHeight, minPxX, minPxY };
-
+        
         drawFrame(offscreenCtx, bounds);
-
+        
         offscreenCtx.save();
         offscreenCtx.translate(-minPxX, -minPxY);
         drawFreestyleTerrainPathsForExport(offscreenCtx);
@@ -863,7 +863,7 @@ document.addEventListener('DOMContentLoaded', () => {
             saveFunction();
         }
     }
-
+    
     function drawFreestyleTerrainPathsForExport(targetCtx) {
         freestyleTerrainPaths.forEach(path => {
             if (path.points.length < 1) return;
@@ -874,7 +874,7 @@ document.addEventListener('DOMContentLoaded', () => {
             targetCtx.lineWidth = path.width;
             targetCtx.lineCap = 'round';
             targetCtx.lineJoin = 'round';
-
+            
             if (path.points.length < 2) {
                 targetCtx.fillStyle = terrain.canvasPattern;
                 targetCtx.beginPath();
@@ -1005,7 +1005,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.setAttribute('width', width);
         svg.setAttribute('height', height);
-
+        
         const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
         defs.appendChild(pattern.cloneNode(true));
         svg.appendChild(defs);
@@ -1027,13 +1027,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const itemContainer = document.createElement('div');
             itemContainer.className = 'item-container';
             itemContainer.dataset.terrain = key;
-            itemContainer.addEventListener('click', () => {
-                currentTool = 'terrain';
-                selectedTerrain = key;
+            itemContainer.addEventListener('click', () => { 
+                currentTool = 'terrain'; 
+                selectedTerrain = key; 
                 nextClickAction = null;
-                updateActiveSwatches();
+                updateActiveSwatches(); 
             });
-
+            
             const swatch = document.createElement('div');
             swatch.className = 'texture-swatch';
                     if (terrain.isCustom) {
@@ -1041,7 +1041,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         swatch.style.backgroundImage = `url(${getPatternDataUri(terrain.pattern)})`;
                     }
-
+            
             const label = document.createElement('div');
             label.className = 'item-label';
             label.textContent = terrain.name;
@@ -1062,11 +1062,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const itemContainer = document.createElement('div');
                     itemContainer.className = 'item-container';
                     itemContainer.dataset.objectKey = fullKey;
-                            itemContainer.addEventListener('click', () => {
-                                currentTool = 'placeObject';
-                        selectedObjectKey = fullKey;
-                                updateActiveSwatches();
-                    });
+                            itemContainer.addEventListener('click', () => { 
+                                nextClickAction = 'placeObject'; 
+                                selectedObjectKey = fullKey;
+                                updateActiveSwatches(); 
+                            });
                     itemContainer.innerHTML = `
                          <div class="object-swatch">${item.symbol}</div>
                          <div class="item-label">${item.name}</div>
@@ -1075,7 +1075,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
         });
-
+        
         updateActiveSwatches();
     }
 
@@ -1085,9 +1085,9 @@ document.addEventListener('DOMContentLoaded', () => {
         pencilOptionsPanel.classList.add('hidden');
         canvas.classList.remove('pencil');
 
-        if (currentTool === 'placeObject') {
+        if (nextClickAction === 'placeObject') {
             document.querySelector(`.item-container[data-object-key="${selectedObjectKey}"]`)?.classList.add('active');
-        } else if (currentTool === 'placeText') {
+        } else if (nextClickAction === 'placeText') {
             textHeader.classList.add('active');
         } else if (currentTool === 'terrain') {
             toolTerrainBtn.classList.add('active');
@@ -1109,7 +1109,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="text-left text-sm text-gray-300 space-y-4">
                 <h3 class="text-xl font-bold text-white">Welcome to the TTRPG Hex Map Maker!</h3>
                 <p>This guide will walk you through all the features of the map maker, helping you create detailed and beautiful hex maps for your tabletop games.</p>
-
+                
                 <h4 class="text-lg font-bold text-white border-t border-gray-600 pt-3 mt-4">1. The Interface at a Glance</h4>
                 <p>The screen is divided into three main areas:</p>
                 <ul class="list-disc list-inside space-y-1 pl-4">
@@ -1120,7 +1120,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 <h4 class="text-lg font-bold text-white border-t border-gray-600 pt-3 mt-4">2. The Control Panel: Your Creative Toolkit</h4>
                 <p>The control panel on the left contains everything you need to build your world.</p>
-
+                
                 <h5 class="text-md font-semibold text-white">Main Tools</h5>
                 <p>At the very top, you have two primary tool modes:</p>
                 <ul class="list-disc list-inside space-y-1 pl-4">
@@ -1140,10 +1140,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 <h4 class="text-lg font-bold text-white border-t border-gray-600 pt-3 mt-4">3. Graphics & Map Options (Bottom Panel)</h4>
                 <p>Click the "Graphics Options" button to find advanced settings like <strong>Layers</strong>, <strong>Grid Options</strong>, and <strong>Map Generation</strong>.</p>
-
+                
                 <h4 class="text-lg font-bold text-white border-t border-gray-600 pt-3 mt-4">4. Saving and Loading</h4>
                 <p>Click the <strong>File Icon</strong> (📄) at the top of the control panel to save your map as a PNG image or a ".json" project file (which you can load later).</p>
-
+                
                 <h4 class="text-lg font-bold text-white border-t border-gray-600 pt-3 mt-4">5. Navigating the Canvas</h4>
                 <ul class="list-disc list-inside space-y-1 pl-4">
                     <li><strong>Pan:</strong> Hold down the <strong>right mouse button</strong> and drag.</li>
@@ -1163,7 +1163,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const modalBackdrop = document.createElement('div');
         modalBackdrop.className = 'modal-backdrop fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
-
+        
         modalBackdrop.innerHTML = `
             <div class="bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl text-white flex flex-col" style="max-height: 90vh;">
                 <div class="flex justify-between items-center p-4 border-b border-gray-700">
@@ -1183,7 +1183,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
-
+    
     function showNamePromptModal(callback) {
         const existingModal = document.querySelector('.modal-backdrop');
         if(existingModal) existingModal.remove();
@@ -1207,7 +1207,7 @@ document.addEventListener('DOMContentLoaded', () => {
         nameInput.focus();
 
         modalBackdrop.querySelector('#modalCancelName').onclick = () => document.body.removeChild(modalBackdrop);
-
+        
         const saveButton = modalBackdrop.querySelector('#modalSaveName');
         saveButton.onclick = () => {
             const newName = nameInput.value.trim();
@@ -1305,7 +1305,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
-
+        
         if (contentHTML === '') {
             contentHTML = '<p class="text-xs text-gray-400" style="grid-column: 1 / -1;">No items on map to display in key.</p>';
         }
@@ -1345,7 +1345,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Draw header background
         targetCtx.fillStyle = 'rgba(31, 41, 55, 0.9)';
         targetCtx.fillRect(x, y, keyWidth, titleHeight + padding);
-
+        
         // Draw item backgrounds
         let itemBgY = y + titleHeight + padding;
         targetCtx.fillStyle = 'rgba(17, 24, 39, 0.7)';
@@ -1362,7 +1362,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const drawSection = (items, type) => {
             if(items.length === 0) return;
-
+            
             targetCtx.font = "bold 13px 'Trebuchet MS'";
             targetCtx.fillStyle = '#f9fafb';
             targetCtx.fillText(type, x + padding, currentY + sectionTitleHeight / 2);
@@ -1371,7 +1371,7 @@ document.addEventListener('DOMContentLoaded', () => {
             items.forEach((itemKey) => {
                 const itemX = x + padding;
                 const itemY = currentY;
-
+                
                 targetCtx.font = textStyle;
                 targetCtx.fillStyle = '#d1d5db';
                 targetCtx.textAlign = 'left';
@@ -1394,7 +1394,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         targetCtx.font = `${swatchSize * 0.9}px Arial`;
                         targetCtx.textAlign = 'center';
                         targetCtx.fillText(object.symbol, itemX + swatchSize / 2, itemY + itemHeight / 2);
-
+                        
                         targetCtx.font = textStyle;
                         targetCtx.textAlign = 'left';
                         targetCtx.fillStyle = '#d1d5db';
@@ -1408,11 +1408,11 @@ document.addEventListener('DOMContentLoaded', () => {
         drawSection(terrainItems, 'Terrain');
         drawSection(objectItems, 'Objects');
     }
-
+    
     function addEventListeners() {
         window.addEventListener('resize', resizeCanvas);
         canvas.addEventListener('contextmenu', e => e.preventDefault());
-
+        
         canvas.addEventListener('mousedown', e => {
             const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
@@ -1429,8 +1429,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (nextClickAction) {
                     saveState();
                     applyTool(e, null, nextClickAction);
-                            nextClickAction = null;
-                            currentTool = 'terrain'; // Revert to terrain tool after placement
+                    nextClickAction = null;
+                    currentTool = 'terrain'; // Revert to terrain tool after placement
                     updateActiveSwatches();
                     return;
                 }
@@ -1477,7 +1477,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
-
+        
         canvas.addEventListener('mousemove', e => {
             if (isPanning) {
                 view.offsetX += e.clientX - panStart.x;
@@ -1495,11 +1495,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
                 const endPoint = pixelToHex(mouseX, mouseY, currentTool === 'pencil');
                 const startPoint = shapeStartPoint;
-
+                
                 previewCtx.save();
                 previewCtx.translate(view.offsetX, view.offsetY);
                 previewCtx.scale(view.zoom, view.zoom);
-
+                
                 if (currentTool === 'terrain') {
                     const shapeHexes = getHexesForTool(e, endPoint);
                     shapeHexes.forEach(hex => {
@@ -1525,7 +1525,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     previewCtx.stroke();
                 }
-
+                
                 previewCtx.restore();
                 drawAll();
             } else if (isPainting) {
@@ -1540,7 +1540,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 drawAll();
             }
         });
-
+        
         canvas.addEventListener('mouseup', e => {
             if (e.button === 0) { // Left-click release
                 const brushMode = currentTool === 'terrain' ? terrainBrushMode : pencilBrushMode;
@@ -1560,7 +1560,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     }
                 }
-
+                
                 if (isPainting) {
                     if (currentTool === 'terrain' && terrainBrushMode === 'spray' && currentFreestyleTerrainPath) {
                         freestyleTerrainPaths.push(currentFreestyleTerrainPath);
@@ -1577,13 +1577,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 shapeStartPoint = null;
                 drawAll();
             }
-
+            
             if (e.button === 2) { // Right-click release
                  isPanning = false;
                  canvas.classList.remove('panning');
             }
         });
-
+        
         canvas.addEventListener('mouseleave', () => {
              if (isPenciling) {
                  if(currentPencilPath && currentPencilPath.points.length > 1) {
@@ -1613,12 +1613,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
-
+            
             const worldX = (mouseX - view.offsetX) / view.zoom;
             const worldY = (mouseY - view.offsetY) / view.zoom;
 
             const newZoom = Math.max(0.1, Math.min(5, view.zoom * zoom));
-
+            
             view.offsetX = mouseX - worldX * newZoom;
             view.offsetY = mouseY - worldY * newZoom;
             view.zoom = newZoom;
@@ -1636,7 +1636,7 @@ document.addEventListener('DOMContentLoaded', () => {
         undoBtn.addEventListener('click', undo);
         redoBtn.addEventListener('click', redo);
         gridColorPicker.addEventListener('input', e => { gridColor = e.target.value; drawAll(); });
-        gridVisibleCheckbox.addEventListener('change', e => {
+        gridVisibleCheckbox.addEventListener('change', e => { 
             const gridLayer = layers.find(l => l.type === 'grid');
             if (gridLayer) {
                 gridLayer.visible = e.target.checked;
@@ -1657,11 +1657,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resetViewBtn.addEventListener('click', centerView);
         addLayerBtn.addEventListener('click', () => addNewLayer());
         deleteLayerBtn.addEventListener('click', deleteActiveLayer);
-        textHeader.addEventListener('click', () => {
-            currentTool = 'placeText';
-            nextClickAction = 'placeText';
-            updateActiveSwatches();
-        });
+        textHeader.addEventListener('click', () => { nextClickAction = 'placeText'; updateActiveSwatches(); });
         generateBaseMapBtn.addEventListener('click', () => {
             showModal("Generate a new blank map? This will delete all layers and current work.", () => {
                 generateBaseMap();
@@ -1675,7 +1671,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             fileDropdownMenu.classList.toggle('hidden');
         });
-        window.addEventListener('click', (e) => {
+        window.addEventListener('click', (e) => { 
             if (!fileMenuBtn.contains(e.target) && !fileDropdownMenu.contains(e.target)) {
                fileDropdownMenu.classList.add('hidden');
             }
@@ -1753,7 +1749,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function initialize() {
         togglePanel(false); // Start with panel open
-
+        
         addEventListeners();
         gridColorPicker.value = gridColor;
         const gridLayer = layers.find(l => l.type === 'grid');
@@ -1769,7 +1765,7 @@ document.addEventListener('DOMContentLoaded', () => {
             centerView();
         });
     }
-
+    
     // --- Initial Call ---
     initialize();
 });
