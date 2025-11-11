@@ -424,6 +424,8 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                         </div>
                         <div id="actionsContent" class="collapsible-content">
+                            <button id="addNewMapBtn" class="w-full mb-2 text-sm py-2">Add New Map</button>
+                            <button id="createNewAssetBtn" class="w-full mb-2 text-sm py-2">Create New Asset</button>
                             <div class="grid grid-cols-4 gap-2 my-2">
                                 <button id="zoomInBtn" title="Zoom In" class="text-2xl">+</button>
                                 <button id="zoomOutBtn" title="Zoom Out" class="text-2xl">-</button>
@@ -635,6 +637,8 @@
             const mapKeyHeader = document.getElementById('mapKeyHeader');
             const mapKeyContent = document.getElementById('mapKeyContent');
             const mapKeyCloseBtn = document.getElementById('mapKeyCloseBtn');
+            const addNewMapBtn = document.getElementById('addNewMapBtn');
+            const createNewAssetBtn = document.getElementById('createNewAssetBtn');
 
             // --- Configuration ---
             const baseHexSize = 30;
@@ -1987,6 +1991,10 @@
                 drawSection(objectItems, 'Objects');
             }
 
+            function showCreateAssetModal() {
+                showModal("Asset creation functionality is coming soon!");
+            }
+
             function addEventListeners() {
                 window.addEventListener('resize', resizeCanvas);
                 canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -2071,8 +2079,18 @@
 
                     if (isDrawingShape) {
                         previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-                        const endPoint = pixelToHex(mouseX, mouseY, currentTool === 'pencil');
+                        let endPoint = pixelToHex(mouseX, mouseY, currentTool === 'pencil');
                         const startPoint = shapeStartPoint;
+
+                        if (e.shiftKey && currentTool === 'pencil' && (pencilBrushMode === 'rectangle' || pencilBrushMode === 'ellipse')) {
+                            const dx = endPoint.x - startPoint.x;
+                            const dy = endPoint.y - startPoint.y;
+                            const size = Math.max(Math.abs(dx), Math.abs(dy));
+                            endPoint = {
+                                x: startPoint.x + size * Math.sign(dx),
+                                y: startPoint.y + size * Math.sign(dy)
+                            };
+                        }
 
                         previewCtx.save();
                         previewCtx.translate(view.offsetX, view.offsetY);
@@ -2125,7 +2143,16 @@
                         const isShapeMode = ['line', 'rectangle', 'ellipse'].includes(brushMode);
 
                         if (isDrawingShape && isShapeMode) {
-                            const endPoint = pixelToHex(e.clientX - canvas.getBoundingClientRect().left, e.clientY - canvas.getBoundingClientRect().top, currentTool === 'pencil');
+                            let endPoint = pixelToHex(e.clientX - canvas.getBoundingClientRect().left, e.clientY - canvas.getBoundingClientRect().top, currentTool === 'pencil');
+                            if (e.shiftKey && currentTool === 'pencil' && (pencilBrushMode === 'rectangle' || pencilBrushMode === 'ellipse')) {
+                                const dx = endPoint.x - shapeStartPoint.x;
+                                const dy = endPoint.y - shapeStartPoint.y;
+                                const size = Math.max(Math.abs(dx), Math.abs(dy));
+                                endPoint = {
+                                    x: shapeStartPoint.x + size * Math.sign(dx),
+                                    y: shapeStartPoint.y + size * Math.sign(dy)
+                                };
+                            }
                             if (currentTool === 'terrain') {
                                 applyTool(e, endPoint);
                             } else if (currentTool === 'pencil') {
@@ -2322,6 +2349,16 @@
                 });
                 document.addEventListener('mouseup', () => {
                     isDraggingKey = false;
+                });
+
+                addNewMapBtn.addEventListener('click', () => {
+                    showModal("Create a new map? This will clear your current map.", () => {
+                        generateBaseMap();
+                    });
+                });
+
+                createNewAssetBtn.addEventListener('click', () => {
+                    showCreateAssetModal();
                 });
             }
 

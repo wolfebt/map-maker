@@ -1,29 +1,32 @@
+const { test, expect } = require('@playwright/test');
+const fs = require('fs');
 
-const { chromium } = require('playwright-chromium');
-const path = require('path');
-
-(async () => {
-  const browser = await chromium.launch();
-  const page = await browser.newPage();
-
-  const filePath = path.join(__dirname, 'index.html');
-  const url = 'file://' + filePath;
+test('should open graphics options and generate a map', async ({ page }) => {
+  const url = 'http://localhost:8000';
 
   console.log(`Navigating to ${url}`);
   await page.goto(url);
 
-  // Wait for the graphics options button and click it to reveal the generate map button
-  await page.waitForSelector('#graphicsBtn');
+  console.log('Waiting for #graphicsBtn...');
+  await page.waitForSelector('#graphicsBtn', { timeout: 5000 });
+  console.log('#graphicsBtn found. Clicking...');
   await page.click('#graphicsBtn');
 
-  await page.waitForSelector('#generateBaseMapBtn');
+  console.log('Waiting for #generateBaseMapBtn...');
+  await page.waitForSelector('#generateBaseMapBtn', { timeout: 5000 });
+  console.log('#generateBaseMapBtn found. Clicking...');
   await page.click('#generateBaseMapBtn');
 
-  // Wait for the modal and click confirm
-  await page.waitForSelector('#modalConfirm');
+  console.log('Waiting for #modalConfirm...');
+  await page.waitForSelector('#modalConfirm', { timeout: 5000 });
+  console.log('#modalConfirm found. Clicking...');
   await page.click('#modalConfirm');
 
-  await page.screenshot({ path: 'screenshot.png' });
+  console.log('Taking screenshot...');
+  const screenshotPath = 'screenshot.png';
+  await page.screenshot({ path: screenshotPath });
+  console.log('Screenshot taken.');
 
-  await browser.close();
-})();
+  // Verify that the screenshot was created
+  expect(fs.existsSync(screenshotPath)).toBe(true);
+});
