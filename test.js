@@ -1,32 +1,37 @@
 const { test, expect } = require('@playwright/test');
-const fs = require('fs');
+const path = require('path');
 
-test('should open graphics options and generate a map', async ({ page }) => {
-  const url = 'http://localhost:8000';
+test('Graphics Options panel functionality', async ({ page }) => {
+  // Navigate to the local HTML file
+  const filePath = path.join(__dirname, 'index.html');
+  await page.goto(`file://${filePath}`);
 
-  console.log(`Navigating to ${url}`);
-  await page.goto(url);
+  // Expand the terrain panel to ensure its content is visible for the initialization check
+  await page.locator('#terrainHeader').click();
 
-  console.log('Waiting for #graphicsBtn...');
-  await page.waitForSelector('#graphicsBtn', { timeout: 5000 });
-  console.log('#graphicsBtn found. Clicking...');
-  await page.click('#graphicsBtn');
+  // Wait for the app to be fully initialized by waiting for a dynamic element
+  await page.waitForSelector('div[data-terrain="water"]');
 
-  console.log('Waiting for #generateBaseMapBtn...');
-  await page.waitForSelector('#generateBaseMapBtn', { timeout: 5000 });
-  console.log('#generateBaseMapBtn found. Clicking...');
-  await page.click('#generateBaseMapBtn');
+  // 1. Find and click the "Graphics Options" button
+  const graphicsBtn = page.locator('#graphicsBtn');
+  await expect(graphicsBtn).toBeVisible();
 
-  console.log('Waiting for #modalConfirm...');
-  await page.waitForSelector('#modalConfirm', { timeout: 5000 });
-  console.log('#modalConfirm found. Clicking...');
-  await page.click('#modalConfirm');
+  // Click the button to expand the panel
+  await graphicsBtn.click();
 
-  console.log('Taking screenshot...');
-  const screenshotPath = 'screenshot.png';
-  await page.screenshot({ path: screenshotPath });
-  console.log('Screenshot taken.');
+  // 2. Verify the content of the panel is now visible
+  const graphicsContent = page.locator('#graphicsContent');
+  await expect(graphicsContent).toBeVisible();
 
-  // Verify that the screenshot was created
-  expect(fs.existsSync(screenshotPath)).toBe(true);
+  // 3. Verify specific controls inside the panel
+  await expect(page.locator('#layerList')).toBeVisible();
+  await expect(page.locator('#addLayerBtn')).toBeVisible();
+  await expect(page.locator('#gridColorPicker')).toBeVisible();
+  await expect(page.locator('#generateBaseMapBtn')).toBeVisible();
+
+  // 4. Click the button again to collapse
+  await graphicsBtn.click();
+
+  // 5. Verify the content is hidden again
+  await expect(graphicsContent).not.toBeVisible();
 });
