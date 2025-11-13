@@ -390,7 +390,7 @@
                     <input type="file" id="loadJsonInput" class="hidden" accept=".json">
                 </div>
                 
-                <div class="flex-grow overflow-y-auto pr-2">
+                <div class="flex-grow overflow-y-auto pr-2" style="min-height: 0;">
                     <div class="control-panel mb-4">
                         <h3 class="!border-b-0 !pb-2">Tools</h3>
                         <div class="grid grid-cols-3 gap-2">
@@ -2529,11 +2529,17 @@
                 updateActiveSwatches();
 
                 requestAnimationFrame(async () => {
-                    resizeCanvas();
-                    await initializePatterns(ctx);
-                    populateSelectors();
-                    generateBaseMap();
-                    centerView();
+                    try {
+                        resizeCanvas();
+                        await initializePatterns(ctx);
+                        populateSelectors();
+                        generateBaseMap();
+                        centerView();
+                    } catch (err) {
+                        console.error("Error during initialization:", err);
+                        const canvasContainer = document.getElementById('canvas-container');
+                        canvasContainer.innerHTML = `<div class="p-4 text-red-400">An error occurred during map initialization. Please check the console for details.</div>`;
+                    }
                 });
             }
 
